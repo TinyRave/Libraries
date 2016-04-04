@@ -3,6 +3,10 @@
 A collection of libraries available to TinyRave tracks. All libraries can be
 imported in either CoffeeScript and JavaScript tracks.
 
+Both adapter.js and stdlib.coffee are included in all tracks by default.
+Instruments, however, is not, so you'll need to add the importScripts() call
+shown below if you want to use it.
+
 
 ### adapter.js
 
@@ -18,21 +22,17 @@ the track's web worker instance and its host.
 
 Contains:
 
-Sample-accurate implementation of `setInterval` / `setTimeout` / `clearInterval`
+* Sample-accurate implementation of `setInterval` / `setTimeout` / `clearInterval`
 defined as functions on the TinyRave object.
-
-Notes. 8 octaves of them, defined as values in Hz on the object `Frequency`.
-
-Extension to Number that provides a `beat()`/`beats()` function, allowing you to
+* Notes. 8 octaves of them, defined as values in Hz on the object `Frequency`.
+* Extension to Number that provides a `beat()`/`beats()` function, allowing you to
 pass beats to functions that expect seconds (E.g. the timing functions above.)
 Use TinyRave.setBPM(newBPM) to set the value used in conversion.
-
-A small DSL for building "blocks" - i.e. sections of a song. For example, you
+* A small DSL for building "blocks" - i.e. sections of a song. For example, you
 may create an intro block, a verse block, and a chorus block. The scheduler will
 take care of transitioning between blocks. During development you can comment
 out blocks to focus on just a single section of your track.
-
-_Note:_ This library does not contain any abstractions for making tones or
+* _Note:_ This library does not contain any abstractions for making tones or
 mixing signals. Check out `instruments.coffee` for that.
 
 **Import with:** _This is included in every track by default._ If you'd like an
@@ -70,13 +70,13 @@ intro = TinyRave.createBlock( 12,
     });
     this.after(0.2, function(){
       console.log("someVar value: " + this.someVar);
-      doSomething()
+      // doSomething()
     });
     this.every(0.5, function(){
-      exampleDrumLoop();
+      // pushSomeDrum();
       this.after(0.2, function(){
         // Will be called every 0.5s starting at 0.2s
-        timersCanBeNested();
+        // timersCanBeNested();
       });
     });
   }
