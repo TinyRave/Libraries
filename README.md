@@ -45,7 +45,7 @@ option to opt out, let me know and I'll build it.
 Frequency.A_4           // 440.0
 
 // Beats
-TinyRave.setBPM(120)    // Must set for beats() to work!
+TinyRave.setBPM(120)    // Must call for beats() to work!
 4.beats()   // 3 seconds
 1.beat()    // 0.5 seconds
 
@@ -91,7 +91,7 @@ TinyRave.scheduler.push(intro)
 Frequency.A_4           # 440.0
 
 # Beats
-TinyRave.setBPM(120)    # Must set for beats() to work!
+TinyRave.setBPM(120)    # Must call for beats() to work!
 4.beats()               # 3 seconds
 1.beat()                # 0.5 seconds
 
