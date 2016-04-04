@@ -4,17 +4,17 @@ A collection of libraries available to TinyRave tracks. All libraries can be
 imported in either CoffeeScript and JavaScript tracks.
 
 
-### Adapter.js
+### adapter.js
 
 This script is prepended to every TinyRave track to allow communication between
 the track's web worker instance and its host.
 
 **Import with:** _This is included in every track by default._
 
-[Source]()
+[Source](adapter.js)
 
 
-### StdLib.coffee
+### stdlib.coffee
 
 Contains:
 
@@ -117,7 +117,8 @@ intro = TinyRave.createBlock( 36.beats(),
 TinyRave.scheduler.push(intro)
 ```
 
-[Source]()
+[Source](stdlib.coffee)
+
 [Example track]()
 
 
@@ -131,5 +132,6 @@ Basic oscillators, a biquad filter, signal mixers and more. Check the source.
 importScripts('')
 ```
 
-[Source]()
+[Source](instruments.coffee)
+
 [Example track]()
