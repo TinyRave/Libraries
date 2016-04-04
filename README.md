@@ -6,8 +6,8 @@ imported in either CoffeeScript and JavaScript tracks.
 
 ### Adapter.js
 
-This script is prepended to every TinyRave track for communication between the
-track's web worker instance and the TinyRave host.
+This script is prepended to every TinyRave track to allow communication between
+the track's web worker instance and its host.
 
 **Import with:** _This is included in every track by default._
 
@@ -33,7 +33,7 @@ take care of transitioning between blocks. During development you can comment
 out blocks to focus on just a single section of your track.
 
 _Note:_ This library does not contain any abstractions for making tones or
-mixing signals. Check out instruments.coffee for that.
+mixing signals. Check out `instruments.coffee` for that.
 
 **Import with:** _This is included in every track by default._ If you'd like an
 option to opt out, let me know and I'll build it.
@@ -45,7 +45,7 @@ option to opt out, let me know and I'll build it.
 Frequency.A_4           // 440.0
 
 // Beats
-TinyRave.setBPM(120)    // Must set!
+TinyRave.setBPM(120)    // Must set for beats() to work!
 4.beats()   // 3 seconds
 1.beat()    // 0.5 seconds
 
@@ -61,7 +61,7 @@ intro = TinyRave.createBlock( 12,
     this.someVar = 1;
   },
   blockDidEnd: function(){
-    // Clean up after your block here
+    // Chance to do clean up after your block has ended
     // Note after() and every() calls are cleared for you
   },
   run: function(){
@@ -91,7 +91,7 @@ TinyRave.scheduler.push(intro)
 Frequency.A_4           # 440.0
 
 # Beats
-TinyRave.setBPM(120)    # Must set!
+TinyRave.setBPM(120)    # Must set for beats() to work!
 4.beats()               # 3 seconds
 1.beat()                # 0.5 seconds
 
@@ -105,8 +105,10 @@ TinyRave.clearInterval(timeoutId) # Timeouts can be preempted
 intro = TinyRave.createBlock( 36.beats(),
   blockWillStart: ->
     @count = 0
+  blockDidEnd: ->
+    # Chance to do cleanup
   run: ->
-    @every 0.1, ->
+    @every 0.020, ->
       @count++
     @every 1, ->
       console.log "Count is #{@count}"
@@ -121,7 +123,7 @@ TinyRave.scheduler.push(intro)
 
 ### Instruments.coffee
 
-Basic oscillators, a biquad filter and more. Check the source.
+Basic oscillators, a biquad filter, signal mixers and more. Check the source.
 
 **Import with:**
 
