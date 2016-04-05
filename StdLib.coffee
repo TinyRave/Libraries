@@ -232,6 +232,12 @@ TinyRave.timer = new TinyRaveTimer()
 TinyRave.scheduler = new BlockScheduler()
 TinyRave.createBlock = BlockScheduler.createBlock
 
+TinyRave.logOnce = (message) ->
+  unless message in TinyRave.logOnceMessages
+    console.log message
+    TinyRave.logOnceMessages.push message
+TinyRave.logOnceMessages = []
+
 TinyRave.setBPM = (bpm) ->
   TinyRave.BPM = bpm
 

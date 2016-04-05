@@ -19,6 +19,8 @@ class Oscillator
     @type = options.type || Oscillator.SINE
     @inverted = !!options.inverted
 
+  setFrequency: (@frequency) ->
+
   process: (state={}) ->
     if arguments.length > 1
       Error "Oscillator.process() only takes 1 argument. Others will be ignored."
@@ -116,8 +118,26 @@ class PulseWidthModulator
 
 
 class Envelope
-  # Envelope types
+  # AD Envelope Type
+  #
+  # Amplitude:
+  #   /\         1
+  #  /  \
+  # /    \       0
+  # |-|          Attack
+  #    |-|       Decay
   @AD   = 0
+
+  # ADSR Envelope Type
+  #
+  # Amplitude:
+  #   /\         1
+  #  /  \____    sustainLevel
+  # /        \   0
+  # |-|          Attack
+  #   |-|        Decay
+  #     |---|    Sustain
+  #         |-|  Release
   @ADSR = 1
 
   constructor: (options={}) ->
@@ -147,17 +167,30 @@ class Envelope
       # Attack
       localTime / @attackTime
     else if localTime <= @attackTime + @decayTime
-      # Decay
-      progress = (localTime - @attackTime) / @decayTime
-      @sustainLevel + ((1 - progress) * (1 - @sustainLevel))
-    else if localTime <= @attackTime + @decayTime + @releaseTime
+      # Plot a line between (attackTime, 1) and (attackTime + decayTime, sustainLevel)
+      # y = mx+b (remember m is slope, b is y intercept)
+      # m = (y2 - y1) / (x2 - x1)
+      m = (@sustainLevel - 1) / ((@attackTime + @decayTime) - @attackTime)
+      # plug in point (attackTime, 1) to find b:
+      # 1 = m(attackTime) + b
+      # 1 - m(attackTime) = b
+      b = 1 - m * @attackTime
+      # and solve, given x = localTime
+      m * localTime + b
+    else if localTime <= @attackTime + @decayTime + @sustainTime
       # Sustain
       @sustainLevel
     else if localTime <= @totalTime
-      # Release
-      adsTime = @attackTime + @decayTime + @sustainTime
-      progress = (localTime - adsTime) / @releaseTime
-      (1 - progress) * @sustainLevel
+      # Plot a line between (attackTime + decayTime + sustainTime, sustainLevel) and (totalTime, 0)
+      # y = mx+b (remember m is slope, b is y intercept)
+      # m = (y2 - y1) / (x2 - x1)
+      m = (0 - @sustainLevel) / (@totalTime - (@attackTime + @decayTime + @sustainTime))
+      # plug in point (totalTime, 0) to find b:
+      # 0 = m(totalTime) + b
+      # 0 - m(totalTime) = b
+      b = 0 - m * @totalTime
+      # and solve, given x = localTime
+      m * localTime + b
     else
       0
 
@@ -232,11 +265,10 @@ class Filter
   @S = 3
 
   constructor: (options={}) ->
-    unless options.type? and options.sampleRate?
-    type, sampleRate
+    console.error "Must specify filter type and sampleRate" unless options.type? && options.sampleRate?
 
-    @Fs = sampleRate
-    @type = type # type of the filter
+    @Fs = options.sampleRate
+    @type = options.type # type of the filter
     @parameterType = Filter.Q # type of the parameter
 
     @x_1_l = 0
@@ -445,4 +477,33 @@ class Filter
     {
       sample: output
       time: state.time
+    }
+
+class PushAndForgetMixer
+  constructor: ->
+    @pruneInterval = 0.100
+    @lastPruneAt = 0
+    @mixableDescriptors = []
+    @time = 0 # This assumes the mixer will start at time 0!
+
+  prune: ->
+    i = @mixableDescriptors.length - 1
+    while (i >= 0)
+      mixable = @mixableDescriptors[i]
+      @mixableDescriptors.splice(i, 1) if mixable.expiration < @time
+      i--
+    @lastPruneAt = @time
+
+  buildSample: (@time) ->
+    @prune() if @time >= @lastPruneAt + @pruneInterval
+    sample = 0
+    for descriptor in @mixableDescriptors when descriptor.expiration >= @time
+      sample += descriptor.buildSample(time: @time)
+    sample
+
+  push: (buildSampleClosure, duration) ->
+    console.error "Must specify duration in push() call" unless duration?
+    @mixableDescriptors.push {
+      expiration: @time + duration,
+      buildSample: buildSampleClosure
     }
