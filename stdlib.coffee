@@ -109,8 +109,9 @@ class Frequency
   @A_SHARP_8 = @B_FLAT_8      = 8458.62
   @B_8                        = 8902.13
 
+
 ###
-TinyRaveTimer
+TinyRaveScheduler
 --------------------------
 The TinyRave library provides a custom sample accurate implementation of
 setInterval / setTimeout / clearTimeout. Any specified callbacks will preempt
@@ -123,12 +124,21 @@ registration and unregistration of callbacks for you.
 
 (See TinyRave.createBlock, and the `@every()` / `@after()` methods in `run()`.)
 ###
-class TinyRaveTimer
+class TinyRaveScheduler
+  @createBlock: (duration, methods) ->
+    { duration: duration, methods: methods }
+
   constructor: ->
+    # timer
     @callbackDescriptors = []
     @lastId = 1
     @time = 0 # Last time fireCallbacks ran. Initialize to 0 so any callers
               # using getTime() can correctly perform offset math.
+    # scheduler
+    @blocks = []
+
+  #
+  # Timer methods
 
   # Make sure you call setTime(time) before we render any samples in main()
   getTime: -> @time # The last time threshold considered
@@ -179,21 +189,20 @@ class TinyRaveTimer
         i--
       i++
 
-class BlockScheduler
-  @createBlock: (duration, methods) ->
-    { duration: duration, methods: methods }
-  constructor: ->
-    @blocks = []
+  #
+  # Block scheduler methods
   getBlockQueueLength: ->
     length = 0
     length += block.duration for block in @blocks
     length
+
   push: (blocks...) ->
     for block in blocks
-      console.warn "Push all blocks before the first call to buildSample. (Feel free to email me if you need this fixed.)" if TinyRave.timer.getTime() > 0
+      console.warn "Push all blocks before the first call to buildSample. (Feel free to email me if you need this fixed.)" if @time > 0
       delay = @getBlockQueueLength()
       @blocks.push(block)
       TinyRave.setTimeout((=> @shiftBlock()), delay)
+
   shiftBlock: ->
     block = @blocks.shift()
     console.error "In shiftBlock(). No block left to shift." unless block?
@@ -208,6 +217,7 @@ class BlockScheduler
     # a block of length 12, with an every of 4, you want execution on 0 4 8 but
     # not 12. (12 is the down beat of the next block.)
     block.methods.run.apply(blockScope)
+
 
 class BlockScope
   constructor: (@duration) ->
@@ -228,9 +238,8 @@ class BlockScope
 # TinyRave Object
 TinyRave = {}
 
-TinyRave.timer = new TinyRaveTimer()
-TinyRave.scheduler = new BlockScheduler()
-TinyRave.createBlock = BlockScheduler.createBlock
+TinyRave.scheduler = new TinyRaveScheduler()
+TinyRave.createBlock = TinyRaveScheduler.createBlock
 
 TinyRave.logOnce = (message) ->
   unless message in TinyRave.logOnceMessages
@@ -242,14 +251,14 @@ TinyRave.setBPM = (bpm) ->
   TinyRave.BPM = bpm
 
 TinyRave.setInterval = (callback, delay) ->
-  TinyRave.timer.registerCallback(callback, delay, TinyRave.timer.getTime(), true)
+  TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), true)
 
 TinyRave.setTimeout = (callback, delay) ->
-  TinyRave.timer.registerCallback(callback, delay, TinyRave.timer.getTime(), false)
+  TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), false)
 
 TinyRave.clearInterval = (id) ->
   # This can work for setTimeout calls, too, unlike native setTimeout.
-  TinyRave.timer.unregisterCallback(id)
+  TinyRave.scheduler.unregisterCallback(id)
   undefined
 
 #
