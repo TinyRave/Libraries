@@ -1,3 +1,6 @@
+const SAMPLE_RATE = 44100;
+const BUFFER_SIZE = 2048; /* Per-channel */
+
 var tr_samplesGenerated = 0;
 
 /**
@@ -32,14 +35,12 @@ if ( ![].fill) {
 }
 
 self.addEventListener('message', function(message) {
-  var buffer, channelBufferSize, i, j, ref, ref1, sample, sampleRate, timeOffset, type;
   if (message.data[0] === "generate") {
-    ref = message.data, type = ref[0], channelBufferSize = ref[1], sampleRate = ref[2];
-    timeOffset = tr_samplesGenerated / sampleRate;
-    buffer = new Float64Array(channelBufferSize * 2);
+    var timeOffset = tr_samplesGenerated / SAMPLE_RATE;
+    buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample !== "undefined" && buildSample !== null) {
-      for (i = j = 0, ref1 = channelBufferSize; 0 <= ref1 ? j < ref1 : j > ref1; i = 0 <= ref1 ? ++j : --j) {
-        sample = buildSample(tr_samplesGenerated / sampleRate);
+      for (var i=0; i < BUFFER_SIZE; i++) {
+        sample = buildSample(tr_samplesGenerated / SAMPLE_RATE);
         tr_samplesGenerated++;
         switch (typeof sample) {
           case "object":
