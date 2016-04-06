@@ -34,6 +34,21 @@ if ( ![].fill) {
   };
 }
 
+/**
+ * Handle messages from the web worker host. Here's how tracks work on TinyRave:
+ *
+ *   1) Build the "real" track source: adapter.js (this file) + stdlib.js + your
+ *        track compiled to js.
+ *   2) Inject the "real" track source into a web worker
+ *   3) Send a "generate" message to the web worker
+ *   4) Handle the "generate" message and call buildSample() enough times to
+ *        fill a stereo buffer with BUFFER_SIZE samples per channel.
+ *   5) Send the buffer back up to the web worker host, via:
+ *        postMessage(["buffer", buffer])
+ *   6) Wait for the next "generate" message
+ *   7) Note the host always tries to generate the next buffer before it's
+ *        actually needed by the AudioContext.
+ */
 self.addEventListener('message', function(message) {
   if (message.data[0] === "generate") {
     var timeOffset = tr_samplesGenerated / SAMPLE_RATE;
