@@ -265,9 +265,9 @@ class Filter
   @S = 3
 
   constructor: (options={}) ->
-    console.error "Must specify filter type and sampleRate" unless options.type? && options.sampleRate?
+    console.error "Must specify filter type." unless options.type?
 
-    @Fs = options.sampleRate
+    @Fs = SAMPLE_RATE
     @type = options.type # type of the filter
     @parameterType = Filter.Q # type of the parameter
 
@@ -324,10 +324,6 @@ class Filter
 
   setFilterType: (type) ->
     @type = type
-    @recalculateCoefficients()
-
-  setSampleRate: (rate) ->
-    @Fs = rate
     @recalculateCoefficients()
 
   setQ: (q) ->
