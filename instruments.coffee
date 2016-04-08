@@ -497,9 +497,15 @@ class PushAndForgetMixer
       sample += descriptor.buildSample(time: @time)
     sample
 
-  push: (buildSampleClosure, duration) ->
+  mixFor: (duration, buildSampleClosure) ->
     console.error "Must specify duration in push() call" unless duration?
+    console.error "Must specify function in push() call" unless buildSampleClosure?
     @mixableDescriptors.push {
       expiration: @time + duration,
       buildSample: buildSampleClosure
     }
+
+GlobalMixer = new PushAndForgetMixer
+
+buildSample = (time) ->
+  GlobalMixer.buildSample time

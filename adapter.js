@@ -1,5 +1,5 @@
-const SAMPLE_RATE = 44100;
-const BUFFER_SIZE = 2048; /* Per-channel */
+var SAMPLE_RATE = 44100;
+var BUFFER_SIZE = 2048; /* Per-channel */
 
 var tr_samplesGenerated = 0;
 
@@ -55,7 +55,9 @@ self.addEventListener('message', function(message) {
     buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample !== "undefined" && buildSample !== null) {
       for (var i=0; i < BUFFER_SIZE; i++) {
-        sample = buildSample(tr_samplesGenerated / SAMPLE_RATE);
+        var time = tr_samplesGenerated / SAMPLE_RATE;
+        TinyRave?.scheduler?.setTime(time);
+        sample = buildSample(time);
         tr_samplesGenerated++;
         switch (typeof sample) {
           case "object":
