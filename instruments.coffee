@@ -249,12 +249,12 @@ class Mixer
 class Filter
 
   # Biquad filter types
-  @LPF = 0                # H(s) = 1 / (s^2 + s/Q + 1)
-  @HPF = 1                # H(s) = s^2 / (s^2 + s/Q + 1)
-  @BPF_CONSTANT_SKIRT = 2 # H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
-  @BPF_CONSTANT_PEAK = 3  # H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+  @LOW_PASS = 0                # H(s) = 1 / (s^2 + s/Q + 1)
+  @HIGH_PASS = 1                # H(s) = s^2 / (s^2 + s/Q + 1)
+  @BAND_PASS_CONSTANT_SKIRT = 2 # H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+  @BAND_PASS_CONSTANT_PEAK = 3  # H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
   @NOTCH = 4              # H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
-  @APF = 5                # H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+  @ALL_PASS = 5                # H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
   @PEAKING_EQ = 6         # H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
   @LOW_SHELF = 7          # H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
   @HIGH_SHELF = 8         # H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
@@ -317,6 +317,18 @@ class Filter
                       # dB/octave, remains proportional to S for all other values for a
                       # fixed f0/Fs and dBgain.
 
+  #
+  # Basic filter parameters
+  setCutoffFrequency: (freq) ->
+    @setF0(freq)
+
+  setQ: (q) ->
+    @parameterType = Filter.Q
+    @Q = Math.max(Math.min(q, 115.0), 0.001)
+    @recalculateCoefficients()
+
+  #
+  # Advanced filter parameters
   coefficients: ->
     b = [@b0, @b1, @b2]
     a = [@a0, @a1, @a2]
@@ -324,11 +336,6 @@ class Filter
 
   setFilterType: (type) ->
     @type = type
-    @recalculateCoefficients()
-
-  setQ: (q) ->
-    @parameterType = Filter.Q
-    @Q = Math.max(Math.min(q, 115.0), 0.001)
     @recalculateCoefficients()
 
   setBW: (bw) ->
@@ -380,7 +387,7 @@ class Filter
     #
 
     switch @type
-      when Filter.LPF       # H(s) = 1 / (s^2 + s/Q + 1)
+      when Filter.LOW_PASS       # H(s) = 1 / (s^2 + s/Q + 1)
         @b0 =  (1 - cosw0)/2
         @b1 =   1 - cosw0
         @b2 =  (1 - cosw0)/2
@@ -388,7 +395,7 @@ class Filter
         @a1 =  -2 * cosw0
         @a2 =   1 - alpha
 
-      when Filter.HPF       # H(s) = s^2 / (s^2 + s/Q + 1)
+      when Filter.HIGH_PASS       # H(s) = s^2 / (s^2 + s/Q + 1)
         @b0 =  (1 + cosw0)/2
         @b1 = -(1 + cosw0)
         @b2 =  (1 + cosw0)/2
@@ -396,7 +403,7 @@ class Filter
         @a1 =  -2 * cosw0
         @a2 =   1 - alpha
 
-      when Filter.BPF_CONSTANT_SKIRT       # H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+      when Filter.BAND_PASS_CONSTANT_SKIRT       # H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
         @b0 =   sinw0/2
         @b1 =   0
         @b2 =  -sinw0/2
@@ -404,7 +411,7 @@ class Filter
         @a1 =  -2*cosw0
         @a2 =   1 - alpha
 
-      when Filter.BPF_CONSTANT_PEAK       # H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+      when Filter.BAND_PASS_CONSTANT_PEAK       # H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
         @b0 =   alpha
         @b1 =   0
         @b2 =  -alpha
@@ -420,7 +427,7 @@ class Filter
         @a1 =  -2*cosw0
         @a2 =   1 - alpha
 
-      when Filter.APF       # H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+      when Filter.ALL_PASS       # H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
         @b0 =   1 - alpha
         @b1 =  -2*cosw0
         @b2 =   1 + alpha
