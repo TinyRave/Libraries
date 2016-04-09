@@ -1,4 +1,4 @@
-class Frequency
+F = class Frequency
   # Based on http://www.phy.mtu.edu/~suits/notefreqs.html
   @C_0                        = 16.35
   @C_SHARP_0 = @D_FLAT_0      = 17.32

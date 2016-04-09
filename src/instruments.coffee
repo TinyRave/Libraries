@@ -4,117 +4,101 @@ Error = (newMessage) ->
     console.error newMessage
     errorMessages.push newMessage
 
-class Oscillator
-  # Oscillator Types
+
+# UnitGenerator.construct() arguments (named parameters, e.g.: UnitGenerator.construct(type: UnitGenerator.SINE)):
+# ------------------------------------------------------------------------------
+#   type: Optional. A UnitGenerator type, e.g. UnitGenerator.SINE.
+#   frequency: Optional. Default 440. Number, or a function that takes a time parameter and returns a frequency. the time argument specifies how long the uGen has been running.
+#   phase: Optional. Default 0. Number, or a function that takes a time parameter and returns a phase shift. the time argument specifies how long the uGen has been running.
+#   amplitude: Optional. Default 1. Number, or a function that takes a time parameter and returns an amplitude multiplier. *Not* in DeciBell's. the time argument specifies how long the uGen has been running.
+class UnitGenerator
+  # Types
   @SINE           = 0
   @SQUARE         = 1
   @SAWTOOTH       = 2
   @TRIANGLE       = 3
-  @BELL           = 4
-  @BELL_REAL      = 5
-  @NOISE          = 6
+  @NOISE          = 4
 
-  constructor: (options={}) ->
-    @frequency = options.frequency || 440
-    @type = options.type || Oscillator.SINE
-    @inverted = !!options.inverted
+  constructor: ->
+    console.error "Do not instantiate this class directly! Use construct(). E.g.: sine = UnitGenerator.construct(type: UnitGenerator.SINE, frequency: 440)"
 
-  setFrequency: (@frequency) ->
+  # Our main interface.
+  @construct: (options={}) ->
+    frequency = options.frequency || 440
+    phase = options.phase || 0
+    amplitude = options.amplitude || 1
 
-  process: (state={}) ->
-    if arguments.length > 1
-      Error "Oscillator.process() only takes 1 argument. Others will be ignored."
-    @startTime ?= state.time
-    localTime = state.time - @startTime
-    state.sample = switch @type
-      when Oscillator.SINE
-        @sine(localTime)
-      when Oscillator.SQUARE
-        @square(localTime)
-      when Oscillator.SAWTOOTH
-        @sawtooth(localTime)
-      when Oscillator.TRIANGLE
-        @triangle(localTime)
-      when Oscillator.BELL
-        @bell(localTime)
-      when Oscillator.BELL_REAL
-        @bell_real(localTime)
-      when Oscillator.NOISE
-        Math.random() * 2 - 1
-    state.sample *= -1 if @inverted
-    state
+    type = options.type
 
-  sine: (localTime) ->
-    Math.sin(Math.PI * 2 * @frequency * localTime)
+    oscillatorFunction =
+    switch type
+      when @SQUARE
+        @square
+      when @SAWTOOTH
+        @sawtooth
+      when @TRIANGLE
+        @triangle
+      when @NOISE
+        @noise
+      else
+        @sine
 
-  square: (localTime) ->
-    sample = Math.sin(Math.PI * 2 * @frequency * localTime)
-    if sample > 0
+    time = -1
+
+    # The actual generator:
+    generator = (_time) ->
+      time = _time if time < 0
+      _localTime = _time - time
+
+      _frequency = if Function.isFunction(frequency) then frequency(_localTime) else frequency
+      _amplitude = if Function.isFunction(amplitude) then amplitude(_localTime) else amplitude
+      _phase = if Function.isFunction(phase) then phase(_localTime) else phase
+
+      # Using localTime makes it easier to anticipate the interference of
+      # multiple ugens
+      _amplitude * oscillatorFunction((_frequency * _localTime) + _phase)
+
+    generator.getFrequency = -> frequency
+    generator.setFrequency = (_frequency) ->
+      frequency = _frequency
+
+    generator.getPhase = -> phase
+    generator.setPhase = (_phase) ->
+      phase = _phase
+
+    generator.getAmplitude = -> amplitude
+    generator.setAmplitude = (_amplitude) ->
+      amplitude = _amplitude
+
+    generator
+
+  @sine = (value) ->
+    # Smooth wave intersecting (0, 0), (0.25, 1), (0.5, 0), (0.75, -1), (1, 0)
+    Math.sin(2 * Math.PI * value)
+
+  @sawtooth = (value) ->
+    # Line from (-.5,-1) to (0.5, 1)
+    progress = (value + 0.5) % 1
+    2 * progress - 1
+
+  @triangle = (value) ->
+    # Linear change from (0, -1) to (0.5, 1) to (1, -1)
+    progress = value % 1
+    if progress < 0.5
+      4 * progress - 1
+    else
+      -4 * progress + 3
+
+  @square = (value) ->
+    # -1 for the first half of a cycle; 1 for the second half
+    progress = value % 1
+    if progress < 0.5
       1
     else
       -1
 
-  sawtooth: (localTime) ->
-    hzDuration = 1 / @frequency
-    progress = (localTime % hzDuration) / hzDuration
-    progress * 2 - 1
-
-  triangle: (localTime) ->
-    hzDuration = 1 / @frequency
-    progress = (localTime % hzDuration) / hzDuration
-    if progress <= 0.5
-      (progress * 2) * 2 - 1
-    else
-      2 - (progress * 2) * 2 - 1
-
-  bell: (localTime) ->
-    fundamental = @frequency
-    # Ideal, per https://en.wikipedia.org/wiki/Strike_tone
-    0.1 * (
-      Math.sin(fundamental * 0.50 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.00 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.20 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.50 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.00 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.50 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.67 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 3.00 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 4.00 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 5.33 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 6.67 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 8.00 * Math.PI * 2 * localTime)
-    )
-
-  bell_real: (localTime) ->
-    fundamental = @frequency
-    # Actual, per https://en.wikipedia.org/wiki/Strike_tone
-    0.1 * (
-      Math.sin(fundamental * 0.500 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.000 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.183 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 1.506 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.000 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.514 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 2.662 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 3.011 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 4.166 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 5.433 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 6.796 * Math.PI * 2 * localTime) +
-      Math.sin(fundamental * 8.215 * Math.PI * 2 * localTime)
-    )
-
-
-class PulseWidthModulator
-  constructor: (options={}) ->
-    modulatorType = options.modulatorType || Oscillator.SINE
-    modulatorFrequency = options.modulatorFrequency || 5
-    @modulator = new Oscillator(type: modulatorType, frequency: modulatorFrequency)
-    @depth = options.depth || 0.5
-
-  process: (state={}) ->
-    modulatorSample = @depth * @modulator.process(time: state.time).sample
-    modulatedSample = if state.sample > modulatorSample then -1 else 1
-    { time: state.time, sample: modulatedSample }
+  @noise = (value) ->
+    Math.random() * 2 - 1
 
 
 class Envelope
@@ -194,13 +178,15 @@ class Envelope
     else
       0
 
-  process: (state) ->
-    if arguments.length > 1
-      Error "Envelope.process() only takes 1 argument. Others will be ignored."
-    @startTime ?= state.time
-    localTime = state.time - @startTime
-    state.sample = state.sample * @getMultiplier(localTime)
-    state
+  realProcess: (time, inputSample) ->
+    @startTime ?= time
+    localTime = time - @startTime
+    inputSample * @getMultiplier(localTime)
+
+  process: (child) ->
+    unless Function.isFunction(child)
+      console.error "#{@constructor.name} expects to act on the result of another sound generator, which should be passed to process() as an argument."
+    (time) => @realProcess(time, child(time))
 
 
 class Mixer
@@ -209,29 +195,18 @@ class Mixer
     # http://www.sengpielaudio.com/calculator-loudness.htm
     options.gain ?= -7.0
     @multiplier = Math.pow(10, options.gain / 20)
-    @debugName = options.name
+    @debugName = options.name || "(No name. Specify a 'name' option when constructing the mixer.)"
 
-  process: (signalStates...) ->
-    # Verify the time offsets are correct
-    signalStates ?= [{}]
-    t1 = signalStates[0].time
-    sample = 0
-    for state in signalStates
-      if state.time != t1
-        Error "Mixing signals with different time values. Because
-        the mixer can only return 1 time value in mixer states, you may get
-        unexpected results. Mixer: #{@debugName}."
-      sample += @multiplier * state.sample
-
-    if sample > 1 || sample < -1
-      Error "Signal out of range. Reduce signal volume when creating
-      the Mixer instance. Mixer: #{@debugName}."
-      sample = Math.min(1, Math.max(-1, sample))
-
-    {
-      sample: sample
-      time: t1
-    }
+  process: (nestedProcessors...) ->
+    (time) =>
+      sample = 0
+      for processor in nestedProcessors
+        sample += @multiplier * processor(time)
+      if sample > 1 || sample < -1
+        Error "Signal out of range. Reduce signal volume when creating
+        the Mixer instance. Mixer: #{@debugName}."
+        sample = Math.min(1, Math.max(-1, sample))
+      sample
 
 
 #
@@ -243,7 +218,7 @@ class Mixer
 #
 
 # Implementation based on:
-# http:#www.musicdsp.org/files/Audio-EQ-Cookbook.txt
+# http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 
 # Biquad filter
 class Filter
@@ -296,9 +271,9 @@ class Filter
     @a1a0 = @a1 / @a0
     @a2a0 = @a2 / @a0
 
-    @f0 = 3000        # "wherever it's happenin', man."  Center Frequency or
-                      # Corner Frequency, or shelf midpoint frequency, depending
-                      # on which filter type.  The "significant frequency".
+    @f0 = options.frequency || 300  # "wherever it's happenin', man."  Center Frequency or
+                                    # Corner Frequency, or shelf midpoint frequency, depending
+                                    # on which filter type.  The "significant frequency".
 
     @dBgain = 12      # used only for peaking and shelving filters
 
@@ -317,11 +292,16 @@ class Filter
                       # dB/octave, remains proportional to S for all other values for a
                       # fixed f0/Fs and dBgain.
 
-  #
-  # Basic filter parameters
-  setCutoffFrequency: (freq) ->
-    @setF0(freq)
+    # Since we now accept frequency as an option
+    @recalculateCoefficients()
 
+  #
+  # Basic parameters
+  setFrequency: (freq) ->
+    @setF0(freq)
+  getFrequency: -> @f0
+
+  getQ: -> @Q
   setQ: (q) ->
     @parameterType = Filter.Q
     @Q = Math.max(Math.min(q, 115.0), 0.001)
@@ -467,20 +447,24 @@ class Filter
     @a1a0 = @a1/@a0
     @a2a0 = @a2/@a0
 
-  process: (state) ->
+  process: (child) ->
+    unless Function.isFunction(child)
+      console.error "#{@constructor.name} expects to act on the result of another sound generator, which should be passed to process() as an argument."
+    (time) => @realProcess(time, child(time))
+
+  realProcess: (time, inputSample) ->
     #y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
     #       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
-    sample = state.sample
+    sample = inputSample
 
     output = @b0a0*sample + @b1a0*@x_1_l + @b2a0*@x_2_l - @a1a0*@y_1_l - @a2a0*@y_2_l
     @y_2_l = @y_1_l
     @y_1_l = output
     @x_2_l = @x_1_l
     @x_1_l = sample
-    {
-      sample: output
-      time: state.time
-    }
+
+    output
+
 
 class PushAndForgetMixer
   constructor: ->
@@ -501,7 +485,7 @@ class PushAndForgetMixer
     @prune() if @time >= @lastPruneAt + @pruneInterval
     sample = 0
     for descriptor in @mixableDescriptors when descriptor.expiration >= @time
-      sample += descriptor.buildSample(time: @time)
+      sample += descriptor.buildSample(@time)
     sample
 
   mixFor: (duration, buildSampleClosure) ->
@@ -511,6 +495,7 @@ class PushAndForgetMixer
       expiration: @time + duration,
       buildSample: buildSampleClosure
     }
+
 
 GlobalMixer = new PushAndForgetMixer
 
