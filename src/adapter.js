@@ -10,6 +10,12 @@ if ( !Function.isFunction ) {
   Function.isFunction = function(arg) {
     return Object.prototype.toString.call(arg) === "[object Function]";
   };
+  // Optimization from: http://underscorejs.org/docs/underscore.html#section-143
+  if (typeof /./ != 'function' && typeof Int8Array != 'object') {
+    Function.isFunction = function(obj) {
+      return typeof obj == 'function' || false;
+    };
+  };
 }
 if ( !Array.isArray ) {
   Array.isArray = function(arg) {

@@ -193,9 +193,12 @@ class Mixer
   constructor: (options={}) ->
     # Calculate amplitude multiplier given perceived dB gain.
     # http://www.sengpielaudio.com/calculator-loudness.htm
-    options.gain ?= -7.0
-    @multiplier = Math.pow(10, options.gain / 20)
+    @setGain(options.gain || -7.0)
     @debugName = options.name || "(No name. Specify a 'name' option when constructing the mixer.)"
+
+  getGain: -> @gain
+  setGain: (@gain=-7.0) ->
+    @multiplier = Math.pow(10, @gain / 20)
 
   process: (nestedProcessors...) ->
     (time) =>
