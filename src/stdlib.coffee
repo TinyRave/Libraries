@@ -295,6 +295,16 @@ clearInterval = (id) ->
   TinyRave.scheduler.unregisterCallback(id)
   undefined
 
+import = (path) ->
+  switch __ENV
+    case "development"
+      root = "http://localhost:5000/lib/"
+      breaker = "?#{Math.floor(Math.random() * 100000)}"
+    else
+      root = "http://tinyrave.com/lib/"
+      breaker = ""
+  importScripts "#{root}#{path}.js#{breaker}"
+
 #
 # Core Extensions
 Number.prototype.beat = Number.prototype.beats = ->
