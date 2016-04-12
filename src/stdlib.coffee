@@ -295,15 +295,15 @@ clearInterval = (id) ->
   TinyRave.scheduler.unregisterCallback(id)
   undefined
 
-import = (path) ->
-  switch __ENV
-    case "development"
-      root = "http://localhost:5000/lib/"
-      breaker = "?#{Math.floor(Math.random() * 100000)}"
-    else
-      root = "http://tinyrave.com/lib/"
-      breaker = ""
-  importScripts "#{root}#{path}.js#{breaker}"
+# Import is a reserved keyword in coffeescript
+```
+var import = function(path){
+  if (path.indexOf(".js" === -1)){
+    path = path + ".js";
+  }
+  importScripts("http://tinyrave.com/lib/" + path);
+}
+```
 
 #
 # Core Extensions
