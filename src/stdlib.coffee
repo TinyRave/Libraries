@@ -126,6 +126,8 @@ registration and unregistration of callbacks for you.
 ###
 class TinyRaveScheduler
   @createBlock: (duration, methods) ->
+    if arguments.length != 2
+      throw new Error "Must specify a duration and block methods for createBlock()"
     { duration: duration, methods: methods }
 
   constructor: ->
@@ -198,41 +200,73 @@ class TinyRaveScheduler
 
   push: (blocks...) ->
     for block in blocks
-      console.warn "Push all blocks before the first call to buildSample. (Feel free to email me if you need this fixed.)" if @time > 0
+      console.warn "Push all blocks before the first call to buildSample. (Feel free to email me if you need this fixed. - Eddie)" if @time > 0
       delay = @getBlockQueueLength()
       @blocks.push(block)
-      TinyRave.setTimeout((=> @shiftBlock()), delay)
+      setTimeout((=> @shiftBlock()), delay)
 
   shiftBlock: ->
     block = @blocks.shift()
     console.error "In shiftBlock(). No block left to shift." unless block?
-    blockScope = new BlockScope block.duration
-    block.methods.blockWillStart?.apply(blockScope)
-    teardown = ->
-      blockScope.blockWillEnd()
-      block.methods.blockDidEnd?.apply(blockScope)
-    TinyRave.setTimeout teardown, block.duration
-    # We want to queue the teardown before any every/after calls. It seems most
-    # natural to run all timers UP TO but not including block.duration. E.g., in
-    # a block of length 12, with an every of 4, you want execution on 0 4 8 but
-    # not 12. (12 is the down beat of the next block.)
+    blockScope = new TopLevelScope block.duration
     block.methods.run.apply(blockScope)
 
 
-class BlockScope
-  constructor: (@duration) ->
-    @timerIds = []
-  getDuration: -> @duration
+# All timer DSL functions (every, until, after) are called with an instance of
+# TopLevelScope or ShadowScope as `this.` Initially, we create a TopLevelScope
+# with an expiration set to now() + delay. Any calls to setInterval / setTimeout
+# from inside the functions will be cleared at the expiration time. The special
+# case is `until`, which executes its callback in a new instance of
+# ShadowScope, which is chained to the parent scope (an instance of
+# TopLevelScope or ShadowScope [since `until` calls can be nested]).
+#
+# Doing this gets us two things:
+#
+# 1) An `expiration` shadow variable. When the timer methods run in an instance
+#    of ShadowScope, they will reference the most-local, shadow copy of
+#    @expiration. This allows us to adjust the block expiration deeper in nested
+#    calls.
+#
+# 2) A version of `this` that will still resolve instance variables. If you
+#    define any variables in blockWillRun they are accessible in timer callbacks
+#    This is really handy, since you can establish your state at the start of
+#    the run, modify it in the timer methods, and reference it when actually
+#    pushing new instruments on to the GlobalMixer.
+
+class TopLevelScope
+  constructor: (delay) ->
+    @expiration = TinyRave.scheduler.getTime() + delay
+
   every: (delay, callback) ->
-    callback.apply(@) # Fire first iteration immediately
-    id = TinyRave.setInterval((=> callback.apply(@)), delay)
-    @timerIds.push id
+    @until(delay, callback)
+    @withExpiration(
+      setInterval((=> @until(delay, callback)), delay)
+    )
+
   after: (delay, callback) ->
-    id = TinyRave.setTimeout((=> callback.apply(@)), delay)
-    @timerIds.push id
-  blockWillEnd: ->
-    for id in @timerIds
-      TinyRave.clearInterval id
+    @withExpiration(
+      setTimeout((=> callback.apply(@)), delay)
+    )
+
+  until: (delay, callback) ->
+    newScope = @createUntilScope(delay)
+    callback.apply(newScope)
+
+  withExpiration: (id) ->
+    setTimeout((=> clearInterval(id)), @expiration - TinyRave.scheduler.getTime())
+
+  createUntilScope: (delay) ->
+    # Delay cannot exceed parent (existing) scope expiration
+    expiration = Math.min(TinyRave.scheduler.getTime() + delay, @expiration)
+    # The new scope creates a shadow var expiration, so timer functions will
+    # see the local scope's value and behave apporopriately in nested calls
+    ShadowScope.prototype = @
+    new ShadowScope(expiration)
+
+# For expiration shadow variable
+class ShadowScope
+  constructor: (@expiration) ->
+
 
 #
 # TinyRave Object
@@ -250,13 +284,13 @@ TinyRave.logOnceMessages = []
 TinyRave.setBPM = (bpm) ->
   TinyRave.BPM = bpm
 
-TinyRave.setInterval = (callback, delay) ->
+setInterval = (callback, delay) ->
   TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), true)
 
-TinyRave.setTimeout = (callback, delay) ->
+setTimeout = (callback, delay) ->
   TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), false)
 
-TinyRave.clearInterval = (id) ->
+clearInterval = (id) ->
   # This can work for setTimeout calls, too, unlike native setTimeout.
   TinyRave.scheduler.unregisterCallback(id)
   undefined
