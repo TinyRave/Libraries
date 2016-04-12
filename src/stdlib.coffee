@@ -172,6 +172,11 @@ class TinyRaveTimer
     while descriptor = @dequeueNextDescriptor()
       descriptor.callback.apply(undefined)
 
+  invalidateBeatLength: ->
+    for descriptor in @callbackDescriptors
+      if descriptor.interval.hasBeatValue()
+        descriptor.interval = descriptor.interval.beats()
+
 
 # All timer DSL functions (every, until, after) are called with an instance of
 # TopLevelScope or ShadowScope as `this.` Initially, we create a TopLevelScope
@@ -240,7 +245,6 @@ class BuildTrackEnvironment extends TopLevelScope
 
   # -
   setBPM: (bpm) ->
-    # TODO Optional - re-calculate timer offsets
     TinyRave.setBPM(bpm)
 
   getBPM: ->
@@ -309,7 +313,7 @@ var import = function(path){
 #
 # TinyRave Object
 TinyRave = {
-  setBPM: (@BPM) ->
+  setBPM: (@BPM) -> @timer.invalidateBeatLength()
   getBPM: -> @BPM
   timer: new TinyRaveTimer()
 }
@@ -326,7 +330,14 @@ clearInterval = (id) ->
 
 #
 # Core Extensions
-Number.prototype.beat = Number.prototype.beats = ->
-  console.error "You must call TinyRave.setBPM(yourBPM) before calling Number.beat()" unless TinyRave.BPM?
-  bps = TinyRave.BPM / 60
-  this / bps
+
+# We can treat 5.beats() as a value in seconds and recover the correct duration
+# if BPM changes. Do do so, call number.beats() if number.hasValueInBeats()
+Number.prototype.beats = Number.prototype.beat = ->
+  valueInBeats = this.valueInBeats || this
+  seconds = new Number(valueInBeats / (TinyRave.BPM / 60))
+  seconds.valueInBeats = valueInBeats
+  seconds
+
+Number.prototype.hasValueInBeats = ->
+  this.valueInBeats?
