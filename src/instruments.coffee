@@ -1,8 +1,8 @@
-errorMessages = []
-Error = (newMessage) ->
-  if errorMessages.indexOf(newMessage) == -1
-    console.error newMessage
-    errorMessages.push newMessage
+warningMessages = []
+logWarning = (message) ->
+  unless message in warningMessages
+    console.error message
+    warningMessages.push message
 
 
 # UnitGenerator.construct() arguments (named parameters, e.g.: UnitGenerator.construct(type: UnitGenerator.SINE)):
@@ -20,7 +20,7 @@ class UnitGenerator
   @NOISE          = 4
 
   constructor: ->
-    console.error "Do not instantiate this class directly! Use construct(). E.g.: sine = UnitGenerator.construct(type: UnitGenerator.SINE, frequency: 440)"
+    throw new Error "Do not instantiate this class directly. Use construct(). E.g.: sine = UnitGenerator.construct(type: UnitGenerator.SINE, frequency: 440)"
 
   # Our main interface.
   @construct: (options={}) ->
@@ -130,13 +130,13 @@ class Envelope
 
     if options.type == Envelope.AD
       unless options.attackTime? && options.decayTime?
-        Error "Options must specify 'attackTime' and 'decayTime' values for AD envelope type."
+        logWarning "Options must specify 'attackTime' and 'decayTime' values for AD envelope type."
       options.sustainTime = 0
       options.releaseTime = 0
       options.sustainLevel = 0
 
     unless options.attackTime? && options.decayTime? && options.sustainTime? && options.releaseTime?
-      Error "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
+      logWarning "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
 
     @type         = options.type
     @sustainLevel = options.sustainLevel
@@ -185,7 +185,7 @@ class Envelope
 
   process: (child) ->
     unless Function.isFunction(child)
-      console.error "#{@constructor.name} expects to act on the result of another sound generator, which should be passed to process() as an argument."
+      throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
     (time) => @realProcess(time, child(time))
 
 
@@ -194,7 +194,6 @@ class Mixer
     # Calculate amplitude multiplier given perceived dB gain.
     # http://www.sengpielaudio.com/calculator-loudness.htm
     @setGain(options.gain || -7.0)
-    @debugName = options.name || "(No name. Specify a 'name' option when constructing the mixer.)"
 
   getGain: -> @gain
   setGain: (@gain=-7.0) ->
@@ -205,10 +204,6 @@ class Mixer
       sample = 0
       for processor in nestedProcessors
         sample += @multiplier * processor(time)
-      if sample > 1 || sample < -1
-        Error "Signal out of range. Reduce signal volume when creating
-        the Mixer instance. Mixer: #{@debugName}."
-        sample = Math.min(1, Math.max(-1, sample))
       sample
 
 
@@ -243,7 +238,7 @@ class Filter
   @S = 3
 
   constructor: (options={}) ->
-    console.error "Must specify filter type." unless options.type?
+    throw new Error "Must specify filter type." unless options.type?
 
     @Fs = SAMPLE_RATE
     @type = options.type # type of the filter
@@ -452,7 +447,7 @@ class Filter
 
   process: (child) ->
     unless Function.isFunction(child)
-      console.error "#{@constructor.name} expects to act on the result of another sound generator, which should be passed to process() as an argument."
+      throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
     (time) => @realProcess(time, child(time))
 
   realProcess: (time, inputSample) ->
@@ -467,40 +462,3 @@ class Filter
     @x_1_l = sample
 
     output
-
-
-class PushAndForgetMixer
-  constructor: ->
-    @pruneInterval = 0.100
-    @lastPruneAt = 0
-    @mixableDescriptors = []
-    @time = 0 # This assumes the mixer will start at time 0!
-
-  prune: ->
-    i = @mixableDescriptors.length - 1
-    while (i >= 0)
-      mixable = @mixableDescriptors[i]
-      @mixableDescriptors.splice(i, 1) if mixable.expiration < @time
-      i--
-    @lastPruneAt = @time
-
-  buildSample: (@time) ->
-    @prune() if @time >= @lastPruneAt + @pruneInterval
-    sample = 0
-    for descriptor in @mixableDescriptors when descriptor.expiration >= @time
-      sample += descriptor.buildSample(@time)
-    sample
-
-  mixFor: (duration, buildSampleClosure) ->
-    console.error "Must specify duration in push() call" unless duration?
-    console.error "Must specify function in push() call" unless buildSampleClosure?
-    @mixableDescriptors.push {
-      expiration: @time + duration,
-      buildSample: buildSampleClosure
-    }
-
-
-GlobalMixer = new PushAndForgetMixer
-
-buildSample = (time) ->
-  GlobalMixer.buildSample time

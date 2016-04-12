@@ -111,7 +111,7 @@ F = class Frequency
 
 
 ###
-TinyRaveScheduler
+TinyRaveTimer
 --------------------------
 The TinyRave library provides a custom sample accurate implementation of
 setInterval / setTimeout / clearTimeout. Any specified callbacks will preempt
@@ -124,26 +124,14 @@ registration and unregistration of callbacks for you.
 
 (See TinyRave.createBlock, and the `@every()` / `@after()` methods in `run()`.)
 ###
-class TinyRaveScheduler
-  @createBlock: (duration, methods) ->
-    if arguments.length != 2
-      throw new Error "Must specify a duration and block methods for createBlock()"
-    { duration: duration, methods: methods }
-
+class TinyRaveTimer
   constructor: ->
-    # timer
     @callbackDescriptors = []
     @lastId = 1
-    @time = 0 # Last time fireCallbacks ran. Initialize to 0 so any callers
-              # using getTime() can correctly perform offset math.
-    # scheduler
-    @blocks = []
+    @time = 0 # Initialize to 0 so any callers using getTime() can correctly
+              # perform offset math.
 
-  #
-  # Timer methods
-
-  # Make sure you call setTime(time) before we render any samples in main()
-  getTime: -> @time # The last time threshold considered
+  getTime: -> @time
   setTime: (time) ->
     # Time only advances
     if time > @time || time == 0
@@ -151,35 +139,10 @@ class TinyRaveScheduler
       @fireCallbacks()
     time
 
-  dequeueNextDescriptor: ->
-    for descriptor, i in @callbackDescriptors
-      fireThreshold = descriptor.registrationTime + descriptor.interval
-      if fireThreshold <= @time
-        if descriptor.isLoop
-          descriptor.registrationTime = fireThreshold
-        else
-          @callbackDescriptors.splice(i, 1)
-        return descriptor
-
-  fireCallbacks: ->
-    # By design! We want to allow a callback to modify other callbacks queued
-    # to fire in the current pass. To accomodate this we use the following algo:
-    #  1) Iterate array from beginning
-    #  2) If valid callback found; fire
-    #  3) Repeat from 1 until no eligible callbacks are found
-    # We need to iterate over the full array, from the beginning, since we don't
-    # know how the state of the array has changed since firing the callback.
-    while descriptor = @dequeueNextDescriptor()
-      descriptor.callback.apply(undefined)
-
-  # Callbacks should fire in a logical order. So if we for example
-  #   registerCallback myCallback1, 0.1
-  #   registerCallback myCallback2, 0.1, 0, true
-  #   registerCallback myCallback3, 0.1
-  # then we should fire, in order: myCallback1, myCallback2, myCallback3
-  registerCallback: (callback, interval, registrationTime=0, isLoop=false) ->
+  # Callbacks should fire in the order the timers were created.
+  registerCallback: (callback, interval, isLoop=false) ->
     id = @lastId++
-    @callbackDescriptors.push { id: id, callback: callback, interval: interval, registrationTime: registrationTime, isLoop: isLoop }
+    @callbackDescriptors.push { id: id, callback: callback, interval: interval, registrationTime: @getTime, isLoop: isLoop }
     id
 
   unregisterCallback: (id) ->
@@ -191,25 +154,23 @@ class TinyRaveScheduler
         i--
       i++
 
-  #
-  # Block scheduler methods
-  getBlockQueueLength: ->
-    length = 0
-    length += block.duration for block in @blocks
-    length
+  # Find next elegible timer. If a loop, re-queue after firing.
+  dequeueNextDescriptor: ->
+    for descriptor, i in @callbackDescriptors
+      fireThreshold = descriptor.registrationTime + descriptor.interval
+      if fireThreshold <= @time
+        if descriptor.isLoop
+          descriptor.registrationTime = fireThreshold
+        else
+          @callbackDescriptors.splice(i, 1)
+        return descriptor
 
-  push: (blocks...) ->
-    for block in blocks
-      console.warn "Push all blocks before the first call to buildSample. (Feel free to email me if you need this fixed. - Eddie)" if @time > 0
-      delay = @getBlockQueueLength()
-      @blocks.push(block)
-      setTimeout((=> @shiftBlock()), delay)
-
-  shiftBlock: ->
-    block = @blocks.shift()
-    console.error "In shiftBlock(). No block left to shift." unless block?
-    blockScope = new TopLevelScope block.duration
-    block.methods.run.apply(blockScope)
+  # By design callbacks can clear timers scheduled to run in the current tick.
+  # We need to iterate over the full array, from the beginning, since we don't
+  # know how the state of the array has changed after firing each callback.
+  fireCallbacks: ->
+    while descriptor = @dequeueNextDescriptor()
+      descriptor.callback.apply(undefined)
 
 
 # All timer DSL functions (every, until, after) are called with an instance of
@@ -235,7 +196,7 @@ class TinyRaveScheduler
 
 class TopLevelScope
   constructor: (delay) ->
-    @expiration = TinyRave.scheduler.getTime() + delay
+    @expiration = TinyRave.getTime() + delay
 
   every: (delay, callback) ->
     @until(delay, callback)
@@ -252,12 +213,15 @@ class TopLevelScope
     newScope = @createUntilScope(delay)
     callback.apply(newScope)
 
+  #
+  # Internal API:
+
   withExpiration: (id) ->
-    setTimeout((=> clearInterval(id)), @expiration - TinyRave.scheduler.getTime())
+    setTimeout((=> clearInterval(id)), @expiration - TinyRave.timer.getTime())
 
   createUntilScope: (delay) ->
     # Delay cannot exceed parent (existing) scope expiration
-    expiration = Math.min(TinyRave.scheduler.getTime() + delay, @expiration)
+    expiration = Math.min(TinyRave.timer.getTime() + delay, @expiration)
     # The new scope creates a shadow var expiration, so timer functions will
     # see the local scope's value and behave apporopriately in nested calls
     ShadowScope.prototype = @
@@ -268,32 +232,69 @@ class ShadowScope
   constructor: (@expiration) ->
 
 
-#
-# TinyRave Object
-TinyRave = {}
+class BuildTrackEnvironment extends TopLevelScope
+  constructor: ->
+    @setBPM(120)
+    @mixer = new GlobalMixer
+    super(60 * 60 * 24 * 365 * 10) # 10 yrs
 
-TinyRave.scheduler = new TinyRaveScheduler()
-TinyRave.createBlock = TinyRaveScheduler.createBlock
+  # -
+  setBPM: (bpm) ->
+    # TODO Optional - re-calculate timer offsets
+    TinyRave.setBPM(bpm)
 
-TinyRave.logOnce = (message) ->
-  unless message in TinyRave.logOnceMessages
-    console.log message
-    TinyRave.logOnceMessages.push message
-TinyRave.logOnceMessages = []
+  getBPM: ->
+    TinyRave.getBPM()
 
-TinyRave.setBPM = (bpm) ->
-  TinyRave.BPM = bpm
+  # -
+  getMasterGain: ->
+    @mixer.getGain()
 
-setInterval = (callback, delay) ->
-  TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), true)
+  setMasterGain: (gain) ->
+    @mixer.setGain(gain)
 
-setTimeout = (callback, delay) ->
-  TinyRave.scheduler.registerCallback(callback, delay, TinyRave.scheduler.getTime(), false)
+  # -
+  play: (buildSampleClosure) ->
+    length = @expiration - TinyRave.timer.getTime()
+    @mixer.mixFor length, buildSampleClosure
 
-clearInterval = (id) ->
-  # This can work for setTimeout calls, too, unlike native setTimeout.
-  TinyRave.scheduler.unregisterCallback(id)
-  undefined
+
+class GlobalMixer
+  constructor: ->
+    @pruneInterval = 0.100
+    @lastPruneAt = 0
+    @mixableDescriptors = []
+    @time = 0 # This assumes the mixer will start at time 0!
+    @setGain(-7)
+
+  getGain: -> @gain
+  setGain: (@gain=-7.0) ->
+    @multiplier = Math.pow(10, @gain / 20)
+
+  prune: ->
+    i = @mixableDescriptors.length - 1
+    while (i >= 0)
+      mixable = @mixableDescriptors[i]
+      @mixableDescriptors.splice(i, 1) if mixable.expiration < @time
+      i--
+    @lastPruneAt = @time
+
+  buildSample: (@time) ->
+    @prune() if @time >= @lastPruneAt + @pruneInterval
+    sample = 0
+    for descriptor in @mixableDescriptors when descriptor.expiration >= @time
+      sample += @multiplier * descriptor.buildSample(@time)
+    if sample > 1 || sample < -1
+      console.log "Warning: signal out of range. Reduce master gain to prevent clipping."
+    sample
+
+  mixFor: (duration, buildSampleClosure) ->
+    console.error "Must specify duration in push() call" unless duration?
+    console.error "Must specify function in push() call" unless buildSampleClosure?
+    @mixableDescriptors.push {
+      expiration: @time + duration,
+      buildSample: buildSampleClosure
+    }
 
 # Import is a reserved keyword in coffeescript
 ```
@@ -304,6 +305,24 @@ var import = function(path){
   importScripts("http://tinyrave.com/lib/" + path);
 }
 ```
+
+#
+# TinyRave Object
+TinyRave = {
+  setBPM: (@BPM) ->
+  getBPM: -> @BPM
+  timer: new TinyRaveTimer()
+}
+
+setInterval = (callback, delay) ->
+  TinyRave.timer.registerCallback(callback, delay, true)
+
+setTimeout = (callback, delay) ->
+  TinyRave.timer.registerCallback(callback, delay, false)
+
+# This works for setTimeout calls, too
+clearInterval = (id) ->
+  TinyRave.timer.unregisterCallback(id)
 
 #
 # Core Extensions

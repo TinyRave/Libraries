@@ -67,8 +67,8 @@ self.addEventListener('message', function(message) {
     if (typeof buildSample !== "undefined" && buildSample !== null) {
       for (var i=0; i < BUFFER_SIZE; i++) {
         var time = tr_samplesGenerated / SAMPLE_RATE;
-        if (TinyRave && TinyRave.scheduler) {
-          TinyRave.scheduler.setTime(time);
+        if (TinyRave && TinyRave.timer) {
+          TinyRave.timer.setTime(time);
         }
         sample = buildSample(time);
         tr_samplesGenerated++;
