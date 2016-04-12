@@ -62,14 +62,21 @@ if ( ![].fill) {
  */
 self.addEventListener('message', function(message) {
   if (message.data[0] === "generate") {
-    var timeOffset = tr_samplesGenerated / SAMPLE_RATE;
     buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample !== "undefined" && buildSample !== null) {
       for (var i=0; i < BUFFER_SIZE; i++) {
         var time = tr_samplesGenerated / SAMPLE_RATE;
-        if (TinyRave && TinyRave.timer) {
-          TinyRave.timer.setTime(time);
+
+        // StdLib V1 Hooks
+        if (TinyRave !== undefined) {
+          if (TinyRave.timer) {
+            TinyRave.timer.setTime(time);
+          }
+          if (!buildSample && !!buildTrack && TinyRave.initializeBuildTrack) {
+            TinyRave.initializeBuildTrack();
+          }
         }
+
         sample = buildSample(time);
         tr_samplesGenerated++;
         switch (typeof sample) {
@@ -87,3 +94,11 @@ self.addEventListener('message', function(message) {
     }
   }
 });
+
+// Use special care to make backwards-compatible updates:
+var import = function(path){
+  if (path.indexOf(".js" === -1)){
+    path = path + ".js";
+  }
+  importScripts("http://tinyrave.com/lib/" + path);
+}

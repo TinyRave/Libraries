@@ -137,6 +137,8 @@ class TinyRaveTimer
     if time > @time || time == 0
       @time = time
       @fireCallbacks()
+    else
+      throw new Error "Time invalid."
     time
 
   # Callbacks should fire in the order the timers were created.
@@ -200,8 +202,8 @@ class TinyRaveTimer
 #    pushing new instruments on to the GlobalMixer.
 
 class TopLevelScope
-  constructor: (delay) ->
-    @expiration = TinyRave.getTime() + delay
+  constructor: (duration) ->
+    @expiration = TinyRave.getTime() + duration
 
   every: (delay, callback) ->
     @until(delay, callback)
@@ -251,6 +253,10 @@ class BuildTrackEnvironment extends TopLevelScope
     TinyRave.getBPM()
 
   # -
+  getMixer: ->
+    @mixer
+
+  # -
   getMasterGain: ->
     @mixer.getGain()
 
@@ -259,8 +265,12 @@ class BuildTrackEnvironment extends TopLevelScope
 
   # -
   play: (buildSampleClosure) ->
-    length = @expiration - TinyRave.timer.getTime()
-    @mixer.mixFor length, buildSampleClosure
+    duration = @expiration - TinyRave.timer.getTime()
+    @playFor(duration, buildSampleClosure)
+
+  playFor: (duration, buildSampleClosure) ->
+    @mixer.mixFor duration, buildSampleClosure
+
 
 
 class GlobalMixer
@@ -279,15 +289,15 @@ class GlobalMixer
     i = @mixableDescriptors.length - 1
     while (i >= 0)
       mixable = @mixableDescriptors[i]
-      @mixableDescriptors.splice(i, 1) if mixable.expiration < @time
+      @mixableDescriptors.splice(i, 1) if mixable.expiresAt < @time
       i--
     @lastPruneAt = @time
 
   buildSample: (@time) ->
     @prune() if @time >= @lastPruneAt + @pruneInterval
     sample = 0
-    for descriptor in @mixableDescriptors when descriptor.expiration >= @time
-      sample += @multiplier * descriptor.buildSample(@time)
+    for descriptor in @mixableDescriptors when descriptor.expiresAt >= @time
+      sample += @multiplier * descriptor.buildSample(@time - descriptor.createdAt, @time)
     if sample > 1 || sample < -1
       console.log "Warning: signal out of range. Reduce master gain to prevent clipping."
     sample
@@ -296,26 +306,29 @@ class GlobalMixer
     console.error "Must specify duration in push() call" unless duration?
     console.error "Must specify function in push() call" unless buildSampleClosure?
     @mixableDescriptors.push {
-      expiration: @time + duration,
+      createdAt: @time
+      expiresAt: @time + duration,
       buildSample: buildSampleClosure
     }
-
-# Import is a reserved keyword in coffeescript
-```
-var import = function(path){
-  if (path.indexOf(".js" === -1)){
-    path = path + ".js";
-  }
-  importScripts("http://tinyrave.com/lib/" + path);
-}
-```
 
 #
 # TinyRave Object
 TinyRave = {
-  setBPM: (@BPM) -> @timer.invalidateBeatLength()
-  getBPM: -> @BPM
   timer: new TinyRaveTimer()
+
+  setBPM: (@BPM) ->
+    @timer.invalidateBeatLength()
+
+  getBPM: ->
+    @BPM
+
+  initializeBuildTrack: ->
+    # Called when the adapter detects buildTrack but no buildSample
+    environment = new BuildTrackEnvironment
+    mixer = environment.getMixer()
+    buildTrack.apply(environment)
+    (window || self).buildSample = (time) ->
+      mixer.buildSample(time)
 }
 
 setInterval = (callback, delay) ->
