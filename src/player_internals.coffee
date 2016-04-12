@@ -31,17 +31,22 @@ class @AudioWorker
       # Allows us to add a native error handler in Atom
       window.yieldWorker(@worker)
 
-  pop: ->
+  requestFrame: ->
     @worker.postMessage(["generate"])
+
+  pop: ->
+    @requestFrame()
     if @_buffer?
       buffer = @_buffer
       @_buffer = null
-      buffer
     else
-      console.log("Dropped an audio frame. If you don't see any other error messages you may be processing too much data. This is normal when system audio is initializing.");
+      if @showDroppedFrameWarning
+        console.log("Dropped an audio frame. If you don't see any other error messages you may be processing too much data.");
       buffer = new Float64Array(AUDIO_BUFFER_SIZE * 2)
       buffer.fill 0
-      buffer
+    # Our worker lags behind the system by one frame so skip warning on the first pop()
+    @showDroppedFrameWarning = true
+    buffer
 
   terminate: ->
     @worker.terminate()
@@ -159,7 +164,7 @@ class @AudioWrapper
   adjustTime: (sec) ->
     framesPerSec = 1 / (AUDIO_BUFFER_SIZE / SAMPLE_RATE)
     for i in [0..(framesPerSec * sec)]
-      @_worker.pop()
+      @_worker.requestFrame()
       @_elapsedTime += AUDIO_BUFFER_SIZE / SAMPLE_RATE
 
 class @EditorBuilder
