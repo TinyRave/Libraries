@@ -206,11 +206,11 @@ class Mixer
   process: (nestedProcessors...) ->
     f = (time, globalTime) =>
       sample = 0
-      for processor in nestedProcessors when processor.duration? && time <= processor.duration
+      for processor in nestedProcessors when (!processor.duration? || time <= processor.duration)
         sample += @multiplier * processor(time, globalTime)
       sample
 
-    # Find longest child duration or leave empty of no child specifies one
+    # Find longest child duration or leave empty if ANY child runs indefinitely
     duration = -1
     for processor in nestedProcessors
       if processor.duration?
@@ -218,6 +218,7 @@ class Mixer
       else
         duration = -1
         break
+
     f.duration = duration if duration > 0
     f
 
