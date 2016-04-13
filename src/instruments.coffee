@@ -188,7 +188,9 @@ class Envelope
       throw new Error "#{@constructor.name}.process() only accepts a single argument."
     unless Function.isFunction(child)
       throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
-    (time) => @realProcess(time, child(time))
+    f = (time) => @realProcess(time, child(time))
+    f.duration = @attackTime + @decayTime + @sustainTime + @releaseTime
+    f
 
 
 class Mixer
@@ -202,11 +204,22 @@ class Mixer
     @multiplier = Math.pow(10, @gain / 20)
 
   process: (nestedProcessors...) ->
-    (time) =>
+    f = (time, globalTime) =>
       sample = 0
-      for processor in nestedProcessors
-        sample += @multiplier * processor(time)
+      for processor in nestedProcessors when processor.duration? && time <= processor.duration
+        sample += @multiplier * processor(time, globalTime)
       sample
+
+    # Find longest child duration or leave empty of no child specifies one
+    duration = -1
+    for processor in nestedProcessors
+      if processor.duration?
+        duration = Math.max(duration, processor.duration)
+      else
+        duration = -1
+        break
+    f.duration = duration if duration > 0
+    f
 
 
 #
@@ -450,7 +463,9 @@ class Filter
   process: (child) ->
     unless Function.isFunction(child)
       throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
-    (time) => @realProcess(time, child(time))
+    f = (time) => @realProcess(time, child(time))
+    f.duration = child.duration if child.duration
+    f
 
   realProcess: (time, inputSample) ->
     #y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
