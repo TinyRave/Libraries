@@ -223,7 +223,7 @@ class TopLevelScope
     callback.apply(newScope)
     # Chain untils() to run sequentially
     {
-      then: (_delay, _callback) => @after(delay, (=> @until(_delay, _callback)))
+      until: (_delay, _callback) => @after(delay, (=> @until(_delay, _callback)))
     }
 
   #
