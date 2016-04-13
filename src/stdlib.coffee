@@ -176,7 +176,7 @@ class TinyRaveTimer
 
   invalidateBeatLength: ->
     for descriptor in @callbackDescriptors
-      if descriptor.interval.hasBeatValue()
+      if descriptor.interval.hasValueInBeats()
         descriptor.interval = descriptor.interval.beats()
 
 
