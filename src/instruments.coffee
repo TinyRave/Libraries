@@ -129,8 +129,8 @@ class Envelope
     options.type          ?= Envelope.AD
 
     if options.type == Envelope.AD
-      unless options.attackTime? && options.decayTime?
-        logWarning "Options must specify 'attackTime' and 'decayTime' values for AD envelope type."
+      options.attackTime  ?= 0.03
+      options.decayTime   ?= 1
       options.sustainTime = 0
       options.releaseTime = 0
       options.sustainLevel = 0
@@ -184,6 +184,8 @@ class Envelope
     inputSample * @getMultiplier(localTime)
 
   process: (child) ->
+    unless arguments.length == 1
+      throw new Error "#{@constructor.name}.process() only accepts a single argument."
     unless Function.isFunction(child)
       throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
     (time) => @realProcess(time, child(time))
