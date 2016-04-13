@@ -26,6 +26,7 @@ class @AudioWorker
 
     @worker = new Worker(URL.createObjectURL(blob))
     @worker.onmessage = @_workerMessage
+    @workerInitialized = false # Have we received our first frame
 
     if window.yieldWorker
       # Allows us to add a native error handler in Atom
@@ -35,17 +36,27 @@ class @AudioWorker
     @worker.postMessage(["generate"])
 
   pop: ->
-    @requestFrame()
-    if @_buffer?
-      buffer = @_buffer
-      @_buffer = null
+    # Here's the sequence of events:
+    # 1. Start system audio
+    # 2. Start web worker, request first audio frame
+    # 3. Feed blank frames to system audio while waiting for worker to produce
+    #    audio.
+    # 4. After generating its first frame we expect the worker to keep up with
+    #    realtime demands. Show a warning if it can't.
+    # 5. There's an extra principle here to not spin the worker clock so never
+    #    queue multiple "generate" requests when we only need one frame.
+
+    buffer = @_buffer
+    @_buffer = null
+
+    if buffer
+      @workerInitialized = true
+      @requestFrame()
     else
-      if @showDroppedFrameWarning
-        console.log("Dropped an audio frame. If you don't see any other error messages you may be processing too much data.");
+      console.log("Not producing audio fast enough.") if @workerInitialized
       buffer = new Float64Array(AUDIO_BUFFER_SIZE * 2)
       buffer.fill 0
-    # Our worker lags behind the system by one frame so skip warning on the first pop()
-    @showDroppedFrameWarning = true
+
     buffer
 
   terminate: ->
@@ -81,6 +92,7 @@ class @AudioWrapper
     @_nextCalled = false
     @_worker.terminate() if @_worker
     @_worker = new AudioWorker(STD_LIBRARY + compiledSource)
+    @_worker.requestFrame()
     @_audioSource = globalAudioContext.createScriptProcessor(AUDIO_BUFFER_SIZE, 0, 2)
     @_audioSource.onaudioprocess = (event) =>
       volume = 0.2
