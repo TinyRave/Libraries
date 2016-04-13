@@ -144,7 +144,7 @@ class TinyRaveTimer
   # Callbacks should fire in the order the timers were created.
   registerCallback: (callback, interval, isLoop=false) ->
     id = @lastId++
-    @callbackDescriptors.push { id: id, callback: callback, interval: interval, registrationTime: @getTime, isLoop: isLoop }
+    @callbackDescriptors.push { id: id, callback: callback, interval: interval, registrationTime: @time, isLoop: isLoop }
     id
 
   unregisterCallback: (id) ->
@@ -203,7 +203,7 @@ class TinyRaveTimer
 
 class TopLevelScope
   constructor: (duration) ->
-    @expiration = TinyRave.getTime() + duration
+    @expiration = TinyRave.timer.getTime() + duration
 
   every: (delay, callback) ->
     @until(delay, callback)
@@ -265,12 +265,8 @@ class BuildTrackEnvironment extends TopLevelScope
 
   # -
   play: (buildSampleClosure) ->
-    duration = @expiration - TinyRave.timer.getTime()
-    @playFor(duration, buildSampleClosure)
-
-  playFor: (duration, buildSampleClosure) ->
+    duration = buildSampleClosure.duration || @expiration - TinyRave.timer.getTime()
     @mixer.mixFor duration, buildSampleClosure
-
 
 
 class GlobalMixer
@@ -327,7 +323,7 @@ TinyRave = {
     environment = new BuildTrackEnvironment
     mixer = environment.getMixer()
     buildTrack.apply(environment)
-    (window || self).buildSample = (time) ->
+    self.buildSample = (time) ->
       mixer.buildSample(time)
 }
 

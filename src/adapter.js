@@ -63,16 +63,21 @@ if ( ![].fill) {
 self.addEventListener('message', function(message) {
   if (message.data[0] === "generate") {
     buffer = new Float64Array(BUFFER_SIZE * 2);
-    if (typeof buildSample !== "undefined" && buildSample !== null) {
+    if (typeof buildSample === "undefined" && typeof buildTrack === "undefined")
+    {
+      postMessage(["log", "You must define a buildSample() or buildTrack() function."]);
+    }
+    else
+    {
       for (var i=0; i < BUFFER_SIZE; i++) {
         var time = tr_samplesGenerated / SAMPLE_RATE;
 
         // StdLib V1 Hooks
-        if (TinyRave !== undefined) {
+        if (typeof TinyRave !== "undefined") {
           if (TinyRave.timer) {
             TinyRave.timer.setTime(time);
           }
-          if (!buildSample && !!buildTrack && TinyRave.initializeBuildTrack) {
+          if (typeof buildSample === "undefined" && typeof buildTrack !== "undefined" && typeof TinyRave.initializeBuildTrack !== "undefined") {
             TinyRave.initializeBuildTrack();
           }
         }
@@ -88,15 +93,13 @@ self.addEventListener('message', function(message) {
             buffer[i * 2] = buffer[i * 2 + 1] = sample;
         }
       }
-      return postMessage(["buffer", buffer]);
-    } else {
-      return postMessage(["log", "Your track must define a buildSample() function."]);
+      postMessage(["buffer", buffer]);
     }
   }
 });
 
 // Use special care to make backwards-compatible updates:
-var import = function(path){
+var require = function(path){
   if (path.indexOf(".js" === -1)){
     path = path + ".js";
   }
