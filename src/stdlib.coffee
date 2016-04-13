@@ -131,7 +131,9 @@ class TinyRaveTimer
     @time = 0 # Initialize to 0 so any callers using getTime() can correctly
               # perform offset math.
 
-  getTime: -> @time
+  getTime: ->
+    @time
+
   setTime: (time) ->
     # Time only advances
     if time > @time || time == 0
@@ -219,10 +221,13 @@ class TopLevelScope
   until: (delay, callback) ->
     newScope = @createUntilScope(delay)
     callback.apply(newScope)
+    # Chain untils() to run sequentially
+    {
+      then: (_delay, _callback) => @after(delay, (=> @until(_delay, _callback)))
+    }
 
   #
   # Internal API:
-
   withExpiration: (id) ->
     setTimeout((=> clearInterval(id)), @expiration - TinyRave.timer.getTime())
 
