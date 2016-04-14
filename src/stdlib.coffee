@@ -221,13 +221,20 @@ class TopLevelScope
   until: (delay, callback) ->
     newScope = @createUntilScope(delay)
     callback.apply(newScope)
-    # Chain untils() to run sequentially
-    {
-      until: (_delay, _callback) => @after(delay, (=> @until(_delay, _callback)))
-    }
+
+    # You can chain until() calls and they'll run sequentially
+    class Chain
+      constructor: (@reference, @delay) ->
+      until: (_delay, _callback) =>
+        @reference.after(@delay, =>
+          @reference.until(_delay, _callback)
+        )
+        new Chain(@reference, @delay + _delay)
+    new Chain(@, delay)
 
   #
   # Internal API:
+
   withExpiration: (id) ->
     setTimeout((=> clearInterval(id)), @expiration - TinyRave.timer.getTime())
 
