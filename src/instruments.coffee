@@ -24,11 +24,15 @@ class UnitGenerator
 
   # Our main interface.
   @construct: (options={}) ->
-    frequency = options.frequency || 440
-    phase = options.phase || 0
-    amplitude = options.amplitude || 1
+    options.frequency ?= 440
+    options.phase     ?= 0
+    options.amplitude ?= 1
+    options.type      ?= UnitGenerator.SINE
 
-    type = options.type
+    frequency     = options.frequency
+    phase         = options.phase
+    amplitude     = options.amplitude
+    type          = options.type
 
     oscillatorFunction =
     switch type
