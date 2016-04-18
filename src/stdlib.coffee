@@ -306,8 +306,6 @@ class GlobalMixer
     sample = 0
     for descriptor in @mixableDescriptors when descriptor.expiresAt >= @time
       sample += @multiplier * descriptor.buildSample(@time - descriptor.createdAt, @time)
-    if sample > 1 || sample < -1
-      console.log "Warning: signal out of range. Reduce master gain to prevent clipping."
     sample
 
   mixFor: (duration, buildSampleClosure) ->
@@ -353,7 +351,7 @@ clearInterval = (id) ->
 # Core Extensions
 
 # We can treat 5.beats() as a value in seconds and recover the correct duration
-# if BPM changes. Do do so, call number.beats() if number.hasValueInBeats()
+# if BPM changes. To do so, call number.beats() if number.hasValueInBeats()
 Number.prototype.beats = Number.prototype.beat = ->
   valueInBeats = this.valueInBeats || this
   seconds = new Number(valueInBeats / (TinyRave.BPM / 60))

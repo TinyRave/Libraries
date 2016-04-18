@@ -95,14 +95,12 @@ class @AudioWrapper
     @_worker.requestFrame()
     @_audioSource = globalAudioContext.createScriptProcessor(AUDIO_BUFFER_SIZE, 0, 2)
     @_audioSource.onaudioprocess = (event) =>
-      volume = 0.2
       left  = event.outputBuffer.getChannelData(0)
       right = event.outputBuffer.getChannelData(1)
       nextBuffer = @_worker.pop()
       for i in [0...left.length]
-        # Clip! – TODO add warning when sample > 1 || sample < -1
-        left[i]  = Math.min(Math.max(volume * nextBuffer[ i*2 ], -1), 1)
-        right[i] = Math.min(Math.max(volume * nextBuffer[ i*2+1 ], -1), 1)
+        left[i]  = nextBuffer[ i*2 ]
+        right[i] = nextBuffer[ i*2+1 ]
       @_elapsedTime += AUDIO_BUFFER_SIZE / SAMPLE_RATE
       if @_elapsedTime > duration
         @guardedNext()

@@ -48,8 +48,8 @@ if ( ![].fill) {
 /**
  * Handle messages from the web worker host. Here's how tracks work on TinyRave:
  *
- *   1) Build the "real" track source: adapter.js (this file) + stdlib.js + your
- *        track compiled to js.
+ *   1) Build the "real" track source: concatenate adapter.js (this file) +
+ *        stdlib.js + your track compiled to js.
  *   2) Inject the "real" track source into a web worker
  *   3) Send a "generate" message to the web worker
  *   4) Handle the "generate" message and call buildSample() enough times to
@@ -69,16 +69,20 @@ self.addEventListener('message', function(message) {
     }
     else
     {
+      // StdLib V1 Hooks - initializeBuildTrack
+      if (typeof TinyRave !== "undefined") {
+        if (typeof buildSample === "undefined" && typeof buildTrack !== "undefined" && typeof TinyRave.initializeBuildTrack !== "undefined") {
+          TinyRave.initializeBuildTrack();
+        }
+      }
+
       for (var i=0; i < BUFFER_SIZE; i++) {
         var time = tr_samplesGenerated / SAMPLE_RATE;
 
-        // StdLib V1 Hooks
+        // StdLib V1 Hooks - update global timer
         if (typeof TinyRave !== "undefined") {
           if (TinyRave.timer) {
             TinyRave.timer.setTime(time);
-          }
-          if (typeof buildSample === "undefined" && typeof buildTrack !== "undefined" && typeof TinyRave.initializeBuildTrack !== "undefined") {
-            TinyRave.initializeBuildTrack();
           }
         }
 
@@ -86,10 +90,19 @@ self.addEventListener('message', function(message) {
         tr_samplesGenerated++;
         switch (typeof sample) {
           case "object":
+            if (sample[0] > 1 || sample[0] < -1 || sample[1] > 1 || sample[1] < -1)
+            {
+              sample[0] = Math.max(-1, Math.min(sample[0], 1))
+              sample[1] = Math.max(-1, Math.min(sample[1], 1))
+            }
             buffer[i * 2] = sample[0];
             buffer[i * 2 + 1] = sample[1];
             break;
           case "number":
+            if (sample > 1 || sample < -1)
+            {
+              sample = Math.max(-1, Math.min(sample, 1))
+            }
             buffer[i * 2] = buffer[i * 2 + 1] = sample;
         }
       }
