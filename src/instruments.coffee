@@ -1,17 +1,9 @@
-_warningMessages = []
-_logWarning = (message) ->
-  unless message in _warningMessages
-    console.error message
-    _warningMessages.push message
-
-
 # Oscillator.construct() arguments (named parameters, e.g.: Oscillator.construct(type: Oscillator.SINE)):
 # ------------------------------------------------------------------------------
 #   type: Optional. A Oscillator type, e.g. Oscillator.SINE.
 #   frequency: Optional. Default 440. Number, or a function that takes a time parameter and returns a frequency. the time argument specifies how long the uGen has been running.
 #   phase: Optional. Default 0. Number, or a function that takes a time parameter and returns a phase shift. the time argument specifies how long the uGen has been running.
 #   amplitude: Optional. Default 1. Number, or a function that takes a time parameter and returns an amplitude multiplier. *Not* in DeciBell's. the time argument specifies how long the uGen has been running.
-
 class Oscillator
   # Types
   @SINE           = 0
@@ -150,7 +142,7 @@ class Envelope
       options.sustainLevel = 0
 
     unless options.attackTime? && options.decayTime? && options.sustainTime? && options.releaseTime?
-      _logWarning "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
+      throw new Error "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
 
     @type         = options.type
     @sustainLevel = options.sustainLevel
