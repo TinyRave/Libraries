@@ -1,4 +1,4 @@
-F = class Frequency
+F = Frequencies = class Frequency
   @noteNumber = (note) ->
     note = parseInt(note)
     (440 / 32) * Math.pow(2, (note - 9) / 12)
