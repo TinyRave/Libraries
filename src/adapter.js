@@ -113,9 +113,15 @@ var handleMessage = function(message) {
 self.addEventListener('message', handleMessage);
 
 // Use special care to make backwards-compatible updates:
+var _loadedURLs = [];
 var require = function(path){
+  var url;
   if (path.indexOf(".js" === -1)){
     path = path + ".js";
   }
-  importScripts("http://tinyrave.com/lib/" + path);
+  url = "http://tinyrave.com/lib/" + path;
+  if (_loadedURLs.indexOf(url.toLowerCase()) === -1) {
+    importScripts(url);
+    _loadedURLs.push(url.toLowerCase());
+  }
 }
