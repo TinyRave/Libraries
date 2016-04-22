@@ -1,8 +1,8 @@
-warningMessages = []
-logWarning = (message) ->
-  unless message in warningMessages
+_warningMessages = []
+_logWarning = (message) ->
+  unless message in _warningMessages
     console.error message
-    warningMessages.push message
+    _warningMessages.push message
 
 
 # Oscillator.construct() arguments (named parameters, e.g.: Oscillator.construct(type: Oscillator.SINE)):
@@ -11,6 +11,7 @@ logWarning = (message) ->
 #   frequency: Optional. Default 440. Number, or a function that takes a time parameter and returns a frequency. the time argument specifies how long the uGen has been running.
 #   phase: Optional. Default 0. Number, or a function that takes a time parameter and returns a phase shift. the time argument specifies how long the uGen has been running.
 #   amplitude: Optional. Default 1. Number, or a function that takes a time parameter and returns an amplitude multiplier. *Not* in DeciBell's. the time argument specifies how long the uGen has been running.
+
 class Oscillator
   # Types
   @SINE           = 0
@@ -20,75 +21,81 @@ class Oscillator
   @NOISE          = 4
 
   constructor: (options={}) ->
-    # Explicit return necessary in constructor
-    return Oscillator.construct(options)
+    @frequency = options.frequency || 440
+    @phase = options.phase || 0
+    @amplitude = options.amplitude || 1
 
-  # Our main interface.
-  @construct: (options={}) ->
-    options.frequency ?= 440
-    options.phase     ?= 0
-    options.amplitude ?= 1
-    options.type      ?= Oscillator.SINE
+    @numericPhase     = @phase unless Function.isFunction(@phase)
+    @numericFrequency = @frequency unless Function.isFunction(@frequency)
+    @numericAmplitude = @amplitude unless Function.isFunction(@amplitude)
 
-    frequency     = options.frequency
-    phase         = options.phase
-    amplitude     = options.amplitude
-    type          = options.type
-
-    oscillatorFunction =
-    switch type
-      when @SQUARE
+    @oscillatorFunction = switch (options.type || Oscillator.SINE)
+      when Oscillator.SQUARE
         @square
-      when @SAWTOOTH
+      when Oscillator.SAWTOOTH
         @sawtooth
-      when @TRIANGLE
+      when Oscillator.TRIANGLE
         @triangle
-      when @NOISE
+      when Oscillator.NOISE
         @noise
       else
         @sine
 
-    time = -1
+    # Represents start time
+    @startTime = -1
 
-    # The actual generator:
-    generator = (_time) ->
-      time = _time if time < 0
-      _localTime = _time - time
-
-      _frequency = if Function.isFunction(frequency) then frequency(_localTime) else frequency
-      _amplitude = if Function.isFunction(amplitude) then amplitude(_localTime) else amplitude
-      _phase = if Function.isFunction(phase) then phase(_localTime) else phase
-
+    # The closure to be returned at the end of this call
+    generator = (time) =>
       # Using localTime makes it easier to anticipate the interference of
       # multiple ugens
-      _amplitude * oscillatorFunction((_frequency * _localTime) + _phase)
+      @startTime = time if @startTime == -1
+      localTime = time - @startTime
+
+      _phase = if @numericPhase? then @numericPhase else @phase(localTime)
+      _frequency = if @numericFrequency? then @numericFrequency else @frequency(localTime)
+      _amplitude = if @numericAmplitude? then @numericAmplitude else @amplitude(localTime)
+
+      _amplitude * @oscillatorFunction((_frequency * localTime) + _phase)
 
     generator.displayName = "Oscillator Sound Generator"
 
-    generator.getFrequency = -> frequency
-    generator.setFrequency = (_frequency) ->
-      frequency = _frequency
+    generator.getFrequency = => @frequency
+    generator.setFrequency = (frequency) =>
+      @frequency = frequency
+      if Function.isFunction(@frequency)
+        @numericFrequency = undefined
+      else
+        @numericFrequency = @frequency
 
-    generator.getPhase = -> phase
-    generator.setPhase = (_phase) ->
-      phase = _phase
+    generator.getPhase = => @phase
+    generator.setPhase = (phase) =>
+      @phase = phase
+      if Function.isFunction(@phase)
+        @numericPhase = undefined
+      else
+        @numericPhase = @phase
 
-    generator.getAmplitude = -> amplitude
-    generator.setAmplitude = (_amplitude) ->
-      amplitude = _amplitude
+    generator.getAmplitude = => @amplitude
+    generator.setAmplitude = (amplitude) =>
+      @amplitude = amplitude
+      if Function.isFunction(@amplitude)
+        @numericAmplitude = undefined
+      else
+        @numericAmplitude = @amplitude
 
-    generator
+    # Explicit return necessary in constructor
+    return generator
 
-  @sine = (value) ->
+  sine: (value) ->
     # Smooth wave intersecting (0, 0), (0.25, 1), (0.5, 0), (0.75, -1), (1, 0)
     Math.sin(2 * Math.PI * value)
 
-  @sawtooth = (value) ->
+  sawtooth: (value) ->
     # Line from (-.5,-1) to (0.5, 1)
     progress = (value + 0.5) % 1
     2 * progress - 1
 
-  @triangle = (value) ->
+  triangle: (value) ->
     # Linear change from (0, -1) to (0.5, 1) to (1, -1)
     progress = value % 1
     if progress < 0.5
@@ -96,7 +103,7 @@ class Oscillator
     else
       -4 * progress + 3
 
-  @square = (value) ->
+  square: (value) ->
     # -1 for the first half of a cycle; 1 for the second half
     progress = value % 1
     if progress < 0.5
@@ -104,7 +111,7 @@ class Oscillator
     else
       -1
 
-  @noise = (value) ->
+  noise: (value) ->
     Math.random() * 2 - 1
 
 
@@ -143,7 +150,7 @@ class Envelope
       options.sustainLevel = 0
 
     unless options.attackTime? && options.decayTime? && options.sustainTime? && options.releaseTime?
-      logWarning "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
+      _logWarning "Options must specify 'attackTime', 'decayTime', 'sustainTime' and 'releaseTime' values for ADSR envelope type."
 
     @type         = options.type
     @sustainLevel = options.sustainLevel
