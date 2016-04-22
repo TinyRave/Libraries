@@ -5,13 +5,13 @@ logWarning = (message) ->
     warningMessages.push message
 
 
-# UnitGenerator.construct() arguments (named parameters, e.g.: UnitGenerator.construct(type: UnitGenerator.SINE)):
+# Oscillator.construct() arguments (named parameters, e.g.: Oscillator.construct(type: Oscillator.SINE)):
 # ------------------------------------------------------------------------------
-#   type: Optional. A UnitGenerator type, e.g. UnitGenerator.SINE.
+#   type: Optional. A Oscillator type, e.g. Oscillator.SINE.
 #   frequency: Optional. Default 440. Number, or a function that takes a time parameter and returns a frequency. the time argument specifies how long the uGen has been running.
 #   phase: Optional. Default 0. Number, or a function that takes a time parameter and returns a phase shift. the time argument specifies how long the uGen has been running.
 #   amplitude: Optional. Default 1. Number, or a function that takes a time parameter and returns an amplitude multiplier. *Not* in DeciBell's. the time argument specifies how long the uGen has been running.
-class UnitGenerator
+class Oscillator
   # Types
   @SINE           = 0
   @SQUARE         = 1
@@ -19,15 +19,16 @@ class UnitGenerator
   @TRIANGLE       = 3
   @NOISE          = 4
 
-  constructor: ->
-    throw new Error "Do not instantiate this class directly. Use construct(). E.g.: sine = UnitGenerator.construct(type: UnitGenerator.SINE, frequency: 440)"
+  constructor: (options={}) ->
+    # Explicit return necessary in constructor
+    return Oscillator.construct(options)
 
   # Our main interface.
   @construct: (options={}) ->
     options.frequency ?= 440
     options.phase     ?= 0
     options.amplitude ?= 1
-    options.type      ?= UnitGenerator.SINE
+    options.type      ?= Oscillator.SINE
 
     frequency     = options.frequency
     phase         = options.phase
@@ -61,6 +62,8 @@ class UnitGenerator
       # Using localTime makes it easier to anticipate the interference of
       # multiple ugens
       _amplitude * oscillatorFunction((_frequency * _localTime) + _phase)
+
+    generator.displayName = "Oscillator Sound Generator"
 
     generator.getFrequency = -> frequency
     generator.setFrequency = (_frequency) ->

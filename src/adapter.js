@@ -60,7 +60,7 @@ if ( ![].fill) {
  *   7) Note the host always tries to generate the next buffer before it's
  *        actually needed by the AudioContext.
  */
-self.addEventListener('message', function(message) {
+var handleMessage = function(message) {
   if (message.data[0] === "generate") {
     buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample === "undefined" && typeof buildTrack === "undefined")
@@ -109,7 +109,8 @@ self.addEventListener('message', function(message) {
       postMessage(["buffer", buffer]);
     }
   }
-});
+}
+self.addEventListener('message', handleMessage);
 
 // Use special care to make backwards-compatible updates:
 var require = function(path){

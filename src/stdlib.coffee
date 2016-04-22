@@ -208,17 +208,20 @@ class TopLevelScope
     @expiration = TinyRave.timer.getTime() + duration
 
   every: (delay, callback) ->
+    callback.displayName ||= "Every Block"
     @until(delay, callback)
     @withExpiration(
       setInterval((=> @until(delay, callback)), delay)
     )
 
   after: (delay, callback) ->
+    callback.displayName ||= "After Block"
     @withExpiration(
       setTimeout((=> callback.apply(@)), delay)
     )
 
   until: (delay, callback) ->
+    callback.displayName ||= "Until Block"
     newScope = @createUntilScope(delay)
     callback.apply(newScope)
 
@@ -236,7 +239,8 @@ class TopLevelScope
   # Internal API:
 
   withExpiration: (id) ->
-    setTimeout((=> clearInterval(id)), @expiration - TinyRave.timer.getTime())
+    expirationCallback = => clearInterval(id)
+    setTimeout(expirationCallback, @expiration - TinyRave.timer.getTime())
 
   createUntilScope: (delay) ->
     # Delay cannot exceed parent (existing) scope expiration
