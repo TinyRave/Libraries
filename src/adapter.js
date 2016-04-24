@@ -1,5 +1,6 @@
 var SAMPLE_RATE = 44100;
 var BUFFER_SIZE = 2048; /* Per-channel */
+var TWO_PI = 2 * Math.PI;
 
 var tr_samplesGenerated = 0;
 
