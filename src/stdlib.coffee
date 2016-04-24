@@ -1,4 +1,7 @@
+# Provides a shorthand for musical notes. Usage:
+# Frequency.A_4 // Defined as 440.0
 F = Frequencies = class Frequency
+  # MIDI Note number -> Hz value
   @noteNumber = (note) ->
     note = parseInt(note)
     (440 / 32) * Math.pow(2, (note - 9) / 12)
@@ -121,14 +124,15 @@ setInterval / setTimeout / clearTimeout. Any specified callbacks will preempt
 audio rendering allowing you to modify your environment with sample-level
 time resolution.
 
-It's recommended you use the DSL provided in TinyRave.createBlock, which
-simplifies the process of creating short-lived loops by managing the
-registration and unregistration of callbacks for you.
+It's recommended you use the DSL provided in buildTrack(), which simplifies the
+process of creating short-lived loops by managing the registration and
+unregistration of callbacks for you.
 
-(See TinyRave.createBlock, and the `@every()` / `@after()` methods in `run()`.)
+See `@every()`, `@after()` and `@until()` methods here:
+https://emcmanus.gitbooks.io/tinyrave-libraries/content/timers.html
 
-This has undergone some optimization to handle 1,000's of scheduled callbacks.
-See `@nextThreshold` below.
+The timer is optimized to handle 1000's of callbacks. (Useful for tracks that
+front-load the scheduling of notes, like when using the MIDI adapter.)
 ###
 class TinyRaveTimer
   constructor: ->
@@ -215,14 +219,12 @@ class TinyRaveTimer
 #
 # 1) An `expiration` shadow variable. When the timer methods run in an instance
 #    of ShadowScope, they will reference the most-local, shadow copy of
-#    @expiration. This allows us to adjust the block expiration deeper in nested
+#    @expiration. This allows us to adjust the block expiration in nested
 #    calls.
 #
 # 2) A version of `this` that will still resolve instance variables. If you
-#    define any variables in blockWillRun they are accessible in timer callbacks
-#    This is really handy, since you can establish your state at the start of
-#    the run, modify it in the timer methods, and reference it when actually
-#    pushing new instruments on to the GlobalMixer.
+#    define any variables using `this` they will be accessible in other timer
+#    callbacks.
 
 class TopLevelScope
   constructor: (duration) ->
@@ -276,6 +278,8 @@ class ShadowScope
   constructor: (@expiration) ->
 
 
+# buildTrack() provides an instance of BuildTrackEnvironment as `this`. Since it
+# extends TopLevelScope, you also get the `every` / `after` / `until` functions.
 class BuildTrackEnvironment extends TopLevelScope
   constructor: ->
     @setBPM(120)
@@ -306,6 +310,14 @@ class BuildTrackEnvironment extends TopLevelScope
     @mixer.mixFor duration, buildSampleClosure
 
 
+# GlobalMixer is a Mixer instance that exists for the life of the track when
+# the track defines a `buildTrack` function. This mixer instance maintains
+# an array of all sound generating functions, and every 100ms iterates the array
+# to remove any functions that have stopped generating audio (as determined by
+# the function's `duration` property). It's strongly recommended that any
+# functions passed into mixFor provide a duration, since this allows us to
+# optimize the mixer. Note: if you use the @play method of `buildTrack` we can
+# do a reasonable job inferring a function's duration from the current scope.
 class GlobalMixer
   constructor: ->
     @pruneInterval = 0.100
@@ -343,7 +355,7 @@ class GlobalMixer
     }
 
 #
-# TinyRave Object
+# TinyRave Namespace
 TinyRave = {
   timer: new TinyRaveTimer()
 
@@ -362,26 +374,33 @@ TinyRave = {
       mixer.buildSample(time)
 }
 
+
+# Sample-accurate replacements for setInterval / setTimeout / clearInterval
+
 setInterval = (callback, delay) ->
   TinyRave.timer.registerCallback(callback, delay, true)
 
 setTimeout = (callback, delay) ->
   TinyRave.timer.registerCallback(callback, delay, false)
 
-# This works for setTimeout calls, too
+# Accepts any ID returned by setInterval or setTimeout.
 clearInterval = (id) ->
   TinyRave.timer.unregisterCallback(id)
 
-#
+
 # Core Extensions
 
 # We can treat 5.beats() as a value in seconds and recover the correct duration
-# if BPM changes. To do so, call number.beats() if number.hasValueInBeats()
+# if BPM changes. After `setBPM()`, call `number.beats()` if
+# `number.hasValueInBeats()`. See `invalidateBeatLength()` implementation for
+# usage.
 Number.prototype.beats = Number.prototype.beat = ->
   valueInBeats = this.valueInBeats || this
   seconds = new Number(valueInBeats / (TinyRave.BPM / 60))
   seconds.valueInBeats = valueInBeats
   seconds
 
+# Whether this number instance was ever generated as the result of a call to
+# beat or beats().
 Number.prototype.hasValueInBeats = ->
   this.valueInBeats?
