@@ -1,5 +1,13 @@
+/**
+ * This script is required for TinyRave tracks to play. A "Track" is actually
+ * just this script + your track source, injected into a sandboxed web worker.
+ *
+ * Adapter.js allows communication between the web worker, where we build frames
+ * of audio, and TinyRave.com, which sends audio buffers to your computer's
+ * audio system.
+ */
 var SAMPLE_RATE = 44100;
-var BUFFER_SIZE = 2048; /* Per-channel */
+var BUFFER_SIZE = 2048; /* In samples, per-channel */
 var TWO_PI = 2 * Math.PI;
 
 var tr_samplesGenerated = 0;
@@ -58,8 +66,8 @@ if ( ![].fill) {
  *   5) Send the buffer back up to the web worker host, via:
  *        postMessage(["buffer", buffer])
  *   6) Wait for the next "generate" message
- *   7) Note the host always tries to generate the next buffer before it's
- *        actually needed by the AudioContext.
+ *   7) Note the host tries to stay 1 buffer ahead of the AudioContext, so we
+ *        always have one frame ready by the time it's needed.
  */
 var handleMessage = function(message) {
   if (message.data[0] === "generate") {
@@ -70,7 +78,7 @@ var handleMessage = function(message) {
     }
     else
     {
-      // StdLib V1 Hooks - initializeBuildTrack
+      // StdLib V1 Hooks - if you've defined buildTrack and not buildSample
       if (typeof TinyRave !== "undefined") {
         if (typeof buildSample === "undefined" && typeof buildTrack !== "undefined" && typeof TinyRave.initializeBuildTrack !== "undefined") {
           TinyRave.initializeBuildTrack();
