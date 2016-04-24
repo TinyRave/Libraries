@@ -1,5 +1,5 @@
 # Provides a shorthand for musical notes. Usage:
-# Frequency.A_4 // Defined as 440.0
+# Frequency.A_4 // Defined to be 440.0
 F = Frequencies = class Frequency
   # MIDI Note number -> Hz value
   @noteNumber = (note) ->
@@ -124,15 +124,15 @@ setInterval / setTimeout / clearTimeout. Any specified callbacks will preempt
 audio rendering allowing you to modify your environment with sample-level
 time resolution.
 
-It's recommended you use the DSL provided in buildTrack(), which simplifies the
-process of creating short-lived loops by managing the registration and
-unregistration of callbacks for you.
+I recommend using the DSL provided by buildTrack(), which atomatically manages
+callback registration and unregistration to simplify the process of creating
+short-lived loops.
 
-See `@every()`, `@after()` and `@until()` methods here:
+See the `@every()`, `@after()` and `@until()` methods here:
 https://emcmanus.gitbooks.io/tinyrave-libraries/content/timers.html
 
-The timer is optimized to handle 1000's of callbacks. (Useful for tracks that
-front-load the scheduling of notes, like when using the MIDI adapter.)
+This timer is optimized to handle 1000's of callbacks, which is useful for
+tracks that front-load the scheduling of notes, like the MIDI adapter.
 ###
 class TinyRaveTimer
   constructor: ->
@@ -155,7 +155,7 @@ class TinyRaveTimer
       @time = time
       if @time >= @nextThreshold
         @fireCallbacks()
-        @updateThreshold() # Descriptors change their registration time when isLoop = true
+        @updateThreshold() # B/C descriptors reset their registration time when isLoop = true
     else
       throw new Error "Time invalid."
     time
@@ -218,9 +218,9 @@ class TinyRaveTimer
 # Doing this gets us two things:
 #
 # 1) An `expiration` shadow variable. When the timer methods run in an instance
-#    of ShadowScope, they will reference the most-local, shadow copy of
+#    of ShadowScope, they will reference the most-local shadow copy of
 #    @expiration. This allows us to adjust the block expiration in nested
-#    calls.
+#    calls and "unwind" the value as we exit nested scopes.
 #
 # 2) A version of `this` that will still resolve instance variables. If you
 #    define any variables using `this` they will be accessible in other timer
