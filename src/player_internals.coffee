@@ -132,16 +132,25 @@ class @AudioWrapper
       canvasCtx.clearRect(0, 0, WIDTH, HEIGHT)
 
       draw = =>
-
         drawVisual = requestAnimationFrame(draw)
-
         @_audioAnalyser.getByteTimeDomainData(dataArray)
+
+        showClipWarning = false
+        for i in [0...bufferLength]
+          loudness = dataArray[i]
+          if loudness == 255.0 || loudness == 0
+            showClipWarning = true
+            break
 
         canvasCtx.fillStyle = BG_COLOR
         canvasCtx.fillRect(0, 0, WIDTH, HEIGHT)
 
         canvasCtx.lineWidth = 1
-        canvasCtx.strokeStyle = LINE_COLOR
+        if showClipWarning
+          # Red line!
+          canvasCtx.strokeStyle = "rgb(255, 0, 0)"
+        else
+          canvasCtx.strokeStyle = LINE_COLOR
 
         canvasCtx.beginPath()
 
