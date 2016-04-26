@@ -3,17 +3,28 @@
  * just this script + your track source, injected into a sandboxed web worker.
  *
  * Adapter.js allows communication between the web worker, where we build frames
- * of audio, and TinyRave.com, which sends audio buffers to your computer's
- * audio system.
+ * of audio, and TinyRave.com, which hands the audio frames to your computer's
+ * sound system.
  */
+
+/**
+ * BUFFER_SIZE may change in the future, but can be ignored by almost all tracks
+ *
+ * Value is the number of samples, per channel, to generate for each frame of
+ * audio.
+ */
+var BUFFER_SIZE = 2048;
 var SAMPLE_RATE = 44100;
-var BUFFER_SIZE = 2048; /* In samples, per-channel */
 var TWO_PI = 2 * Math.PI;
 
+// Internal count of samples generated, per channel.
 var tr_samplesGenerated = 0;
 
 /**
- * Polyfills
+ * Function.isFunction(obj) Polyfill
+ *
+ * Returns
+ * True if obj looks like a function. False otherwise.
  */
 if ( !Function.isFunction ) {
   Function.isFunction = function(arg) {
@@ -26,11 +37,25 @@ if ( !Function.isFunction ) {
     };
   };
 }
+/**
+ * Array.isArray(obj) Polyfill
+ *
+ * Returns
+ * True if obj looks like an array. False otherwise.
+ */
 if ( !Array.isArray ) {
   Array.isArray = function(arg) {
     return Object.prototype.toString.call(arg) === '[object Array]';
   };
 }
+/**
+ * arrayInstance.fill(value) Polyfill
+ *
+ * Fill every slot in the array with `value`. Runs in place.
+ *
+ * Returns
+ * The array instance.
+ */
 if ( ![].fill) {
   Array.prototype.fill = function( value ) {
     var O = Object( this );
@@ -60,14 +85,16 @@ if ( ![].fill) {
  *   1) Build the "real" track source: concatenate adapter.js (this file) +
  *        stdlib.js + your track compiled to js.
  *   2) Inject the "real" track source into a web worker
- *   3) Send a "generate" message to the web worker
- *   4) Handle the "generate" message and call buildSample() enough times to
- *        fill a stereo buffer with BUFFER_SIZE samples per channel.
- *   5) Send the buffer back up to the web worker host, via:
+ *   3) TinyRave sends a "generate" message to the web worker
+ *   4) The web worker handles the "generate" message and call buildSample()
+ *        enough times to fill a stereo buffer with BUFFER_SIZE samples per
+ *        channel.
+ *   5) Send the buffer back to the web worker host, via:
  *        postMessage(["buffer", buffer])
- *   6) Wait for the next "generate" message
- *   7) Note the host tries to stay 1 buffer ahead of the AudioContext, so we
- *        always have one frame ready by the time it's needed.
+ *   6) The web worker sits idle until the next "generate" message.
+ *
+ *   Note: the host tries to stay 1 buffer ahead of the AudioContext to have the
+ *        next frame ready by the time it's needed.
  */
 var handleMessage = function(message) {
   if (message.data[0] === "generate") {
@@ -121,7 +148,22 @@ var handleMessage = function(message) {
 }
 self.addEventListener('message', handleMessage);
 
-// Use special care to make backwards-compatible updates:
+/**
+ * require()
+ *
+ * This is just a shorthand wrapper around importScripts, not an implementation
+ * of require you may be familiar with. importScripts doesn't expect any modular
+ * format. It acts more like include in PHP, or #include in C. All imported
+ * scripts are essentially inlined, so global scope is shared.
+ *
+ * Arguments
+ *   Library name. Required. String.
+ *
+ * Usage
+ *   require('v1/instruments')
+ *
+ * Maintainer note: use special care to make backwards-compatible updates.
+ */
 var _loadedURLs = [];
 var require = function(path){
   var url;

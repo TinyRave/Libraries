@@ -1,9 +1,80 @@
-# Oscillator.construct() arguments (named parameters, e.g.: Oscillator.construct(type: Oscillator.SINE)):
-# ------------------------------------------------------------------------------
-#   type: Optional. A Oscillator type, e.g. Oscillator.SINE.
-#   frequency: Optional. Default 440. Number, or a function that takes a time parameter and returns a frequency. the time argument specifies how long the uGen has been running.
-#   phase: Optional. Default 0. Number, or a function that takes a time parameter and returns a phase shift. the time argument specifies how long the uGen has been running.
-#   amplitude: Optional. Default 1. Number, or a function that takes a time parameter and returns an amplitude multiplier. *Not* in DeciBell's. the time argument specifies how long the uGen has been running.
+###
+Oscillator Class
+--------------------------------------------------------------------------------
+The Oscillator class provides a basic sound wave. You can play the resulting
+sound directly, or, more likely, process the sound with another class in the
+library, such as Filter, Envelope, or Mixer.
+
+Constants
+Oscillator.SINE       Wave type. Smooth sine waveform.
+Oscillator.SQUARE     Wave type. Square waveform.
+Oscillator.SAWTOOTH   Wave type. Sawtooth waveform.
+Oscillator.TRIANGLE   Wave type. Triangle waveform.
+Oscillator.NOISE      Wave type. Random samples between -1 and 1.
+
+Wave types: https://en.wikipedia.org/wiki/Waveform
+
+Arguments
+ type:         Optional. Default Oscillator.SINE. The type of sound wave to
+               generate. Accepted values: Oscillator.SINE,
+               Oscillator.TRIANGLE, Oscillator.SQUARE, Oscillator.NOISE,
+               Oscillator.SAWTOOTH.
+ frequency:    Optional. Default 440. Number, or a function that takes a time
+               parameter and returns a frequency. The time argument specifies
+               how long the oscillator has been running.
+ amplitude:    Optional. Default 1. Number, or a function that takes a time
+               parameter and returns an amplitude multiplier. *Not* in
+               dB's. the time argument specifies how long the oscillator has
+               been running.
+ phase:        Optional. Default 0. Number, or a function that takes a time
+               parameter and returns a phase shift. the time argument
+               specifies how long the oscillator has been running. This is an
+               advanced parameter and can probably be ignored in most cases.
+
+Returns
+An instance-like closure that wraps the values passed at instantiation. This
+follows the `(time) -> sample` convention for use in play() and buildSample().
+
+Usage 1 (JS) - Basic wave (build sample version)
+ require('v1/instruments');
+ var oscillator = new Oscillator({frequency: Frequency.A_3});
+ var buildSample = function(time){
+   return oscillator(time);
+ }
+
+Usage 2 (JS) - Basic triangle wave (build track version)
+ require('v1/instruments');
+ var oscillator = new Oscillator({frequency: Frequency.A_3, type: Oscillator.TRIANGLE});
+ var buildTrack = function(){
+   this.play(oscillator);
+ }
+
+Usage 3 (JS) - Basic square wave, with amplitude
+ require('v1/instruments');
+ var oscillator = new Oscillator({frequency: Frequency.A_3, type: Oscillator.SQUARE, amplitude: 0.7});
+ var envelope = new Envelope();
+ var buildTrack = function(){
+   this.play(envelope.process(oscillator));
+ }
+
+Usage 4 (JS) - Vibrato
+ require('v1/instruments');
+ var phaseModulation = function(time){ return 0.1 * Math.sin(TWO_PI * time * 5); }
+ var oscillator = new Oscillator({frequency: Frequency.A_3, phase: phaseModulation});
+ var buildTrack = function(){
+   this.play(oscillator);
+ }
+
+Usage 5 (JS) - Hi Hat
+ require('v1/instruments');
+ var oscillator = new Oscillator({frequency: Frequency.A_3, type: Oscillator.NOISE});
+ var filter = new Filter({type: Filter.HIGH_PASS, frequency: 10000});
+ var envelope = new Envelope();
+ var buildTrack = function(){
+   this.play(envelope.process(filter.process(oscillator)));
+ }
+###
+
 class Oscillator
   # Types
   @SINE           = 0
@@ -39,7 +110,7 @@ class Oscillator
     # The closure to be returned at the end of this call
     generator = (time) =>
       # Using localTime makes it easier to anticipate the interference of
-      # multiple ugens
+      # multiple oscillators
       @startTime = time if @startTime == -1
       localTime = time - @startTime
 
@@ -107,6 +178,78 @@ class Oscillator
     Math.random() * 2 - 1
 
 
+###
+Envelope Class
+--------------------------------------------------------------------------------
+Shapes the sound wave passed into process().
+
+Constants
+  Envelope.AD     Attack / Decay envelope. Only the attackTime and decayTime
+                  parameters are used.
+
+                  AD Envelope - Amplitude:
+                    /\         1
+                   /  \
+                  /    \       0
+
+                  |-|          Attack phase
+                     |-|       Decay phase
+
+  Envelope.ADSR   Attack Decay Sustain Release envelope. All parameters are
+                  used.
+
+                  ADSR Envelope - Amplitude:
+                    /\         1
+                   /  \____    sustainLevel
+                  /        \   0
+
+                  |-|          Attack phase
+                    |-|        Decay phase
+                      |---|    Sustain phase
+                          |-|  Release phase
+
+Arguments
+  type:           Optional. Default Envelope.AD. Accepted values: Envelope.AD,
+                  Envelope.ADSR.
+  attackTime:     Optional. Default 0.03. Value in seconds.
+  decayTime:      Optional. Default 1.0. Value in seconds.
+  sustainTime:    Optional. Default 0. Value in seconds. Ignored unless envelope
+                  type is Envelope.ADSR.
+  releaseTime:    Optional. Default 0. Value in seconds. Ignored unless envelope
+                  type is Envelope.ADSR.
+  sustainLevel:   Optional. Default 0. Value in seconds. Ignored unless envelope
+                  type is Envelope.ADSR.
+
+Returns
+An object with a process() method, ready to accept an oscillator or other sound
+generator to be shaped.
+
+Usage 1 (JS)
+require('v1/instruments');
+var o = new Oscillator;
+var e = new Envelope;
+var processor = e.process(o);
+var buildSample = function(time) {
+  return processor(time);
+}
+
+Usage 2 (JS)
+require('v1/instruments');
+var o = new Oscillator;
+var e = new Envelope;
+var buildTrack = function() {
+  this.play(e.process(o));
+}
+
+Usage 3 (JS)
+require('v1/instruments');
+var o = new Oscillator;
+var e = new Envelope({type: Envelope.ADSR, sustainTime: 1, releaseTime: 1, sustainLevel: 0.5});
+var buildTrack = function() {
+  this.play(e.process(o));
+}
+
+###
 class Envelope
   # AD Envelope Type
   #
@@ -189,6 +332,29 @@ class Envelope
     localTime = time - @startTime
     inputSample * @getMultiplier(localTime)
 
+  ###
+  process()
+  ---------
+
+  Arguments
+  A single instance of Oscillator, or the returned value from another process()
+  call.
+
+  Returns
+  An object that can be passed into play(), used in buildSample(), or passed
+  into another object's process() method. More precisely, process() returns a
+  closure in the format of `(time) -> sample`.
+
+  Usage 1
+  someOscillator = new Oscillator
+  envelope.process(someOscillator)
+
+  Usage 2
+  someOscillator1 = new Oscillator
+  someOscillator2 = new Oscillator
+  envelope.process(mixer.process(someOscillator1, someOscillator2))
+
+  ###
   process: (child) ->
     unless arguments.length == 1
       throw new Error "#{@constructor.name}.process() only accepts a single argument."
@@ -199,6 +365,45 @@ class Envelope
     f
 
 
+###
+Mixer Class
+--------------------------------------------------------------------------------
+A mixer primarily does two things: adjust the volume of a signal, and add
+multiple signals together into one.
+
+Most process() methods allow only a single argument. If you'd like to process
+multiple signals, you can combine them first using this class.
+
+Constants
+  None
+
+Arguments
+  gain:     Gain amount in dB. Optional. Default -7.0. Float value.
+
+Returns
+An object with a process() method, ready to accept multiple oscillators, or any
+results of calls to other process() methods.
+
+Usage 1 (JS)
+var oscillator1 = new Oscillator();
+var oscillator2 = new Oscillator({frequency: Frequency.A_4});
+var mixer = new Mixer({ gain: -5.0 });
+var processor = mixer.process(oscillator1, oscillator2);
+var buildSample = function(time){
+  return processor(time);
+}
+
+Usage 2 (JS)
+var oscillator1 = new Oscillator();
+var oscillator2 = new Oscillator({frequency: Frequency.A_4});
+var envelope = new Envelope();
+var mixer = new Mixer({ gain: -5.0 });
+var processor = envelope.process(mixer.process(oscillator1, oscillator2));
+var buildTrack = function(){
+  this.play(processor);
+}
+
+###
 class Mixer
   constructor: (options={}) ->
     # Calculate amplitude multiplier given perceived dB gain.
@@ -209,6 +414,28 @@ class Mixer
   setGain: (@gain=-7.0) ->
     @multiplier = Math.pow(10, @gain / 20)
 
+  ###
+  process()
+  ---------
+
+  Arguments
+  Multiple instances of Oscillator, or the returned values from other process()
+  calls.
+
+  Returns
+  An object that can be passed into play(), used in buildSample(), or passed
+  into another object's process() method. More precisely, process() returns a
+  closure in the format of `(time) -> sample`.
+
+  Usage 1
+  someOscillator = new Oscillator
+  envelope.process(someOscillator)
+
+  Usage 2
+  someOscillator1 = new Oscillator
+  someOscillator2 = new Oscillator
+  envelope.process(mixer.process(someOscillator1, someOscillator2))
+  ###
   process: (nestedProcessors...) ->
     f = (time, globalTime) =>
       sample = 0
@@ -229,18 +456,78 @@ class Mixer
     f
 
 
-#
+###
+Filter Class
+--------------------------------------------------------------------------------
+Utility class to attenuate the different frequency components of a signal.
+
+For example white noise (e.g.: (t) -> Math.random() * 2 - 1), contains a wide
+range of frequencies. By filtering this noise you can shape the resulting sound.
+This is best understood through experimentation.
+
+This class implements a Biquad filter, a workhorse for general-purpose filter
+use.
+
+Filters are complex; it's not always intuitive how a parameter value will affect
+the resulting frequency response. It may be helpful to use a frequency response
+calculator, like this one, which is really nice:
+http://www.earlevel.com/main/2013/10/13/biquad-calculator-v2/
+
+Constants
+  Filter.LOW_PASS:                  Filter type. Let low frequencies through.
+  Filter.HIGH_PASS:                 Filter type. Let high frequencies through.
+  Filter.BAND_PASS_CONSTANT_SKIRT:  Filter type. Let a range of frequencies
+                                    through. Optionally uses the band width
+                                    parameter (`filter.setBW(width)`).
+  Filter.BAND_PASS_CONSTANT_PEAK:   Filter type. Let a range of frequencies
+                                    through. Optionally uses the band width
+                                    parameter (`filter.setBW(width)`).
+  Filter.NOTCH:                     Filter type. Remove a narrow range of
+                                    frequencies.
+  Filter.ALL_PASS:                  Filter type. Let all frequencies through.
+  Filter.PEAKING_EQ:                Filter type. Boost frequencies around a
+                                    specific value. Optionally uses the
+                                    setDbGain value.
+  Filter.LOW_SHELF:                 Filter type. Boost low-frequency sounds.
+                                    Optionally uses the setDbGain value.
+  Filter.HIGH_SHELF:                Filter type. Boost high-frequency sounds.
+                                    Optionally uses the setDbGain value.
+
+Arguments
+  type:       Optional. Default Filter.LOW_PASS. Accepts any filter type.
+  frequency:  Optional. Default 300. A value in Hz specifying the midpoint or
+              cutoff frequency of the filter.
+
+Returns
+An object with a process() method, ready to accept multiple oscillators, or any
+results of calls to other process() methods.
+
+Usage 1 (JS):
+  require('v1/instruments');
+  var oscillator = new Oscillator({type: Oscillator.SQUARE, frequency: 55})
+  var filter = new Filter();
+  var processor = filter.process(oscillator);
+  var buildSample = function(time){
+    return processor(time);
+  }
+
+Usage 2 (JS):
+  require('v1/instruments');
+  var oscillator = new Oscillator({frequency: Frequency.A_3, type: Oscillator.NOISE});
+  var filter = new Filter({type: Filter.HIGH_PASS, frequency: 10000});
+  var envelope = new Envelope();
+  var buildTrack = function(){
+   this.play(envelope.process(filter.process(oscillator)));
+  }
+
+###
 #  Biquad filter
-#
 #  Created by Ricard Marxer <email@ricardmarxer.com> on 2010-05-23.
 #  Copyright 2010 Ricard Marxer. All rights reserved.
 #  Translated to CoffeeScript by Ed McManus
 #
-
 # Implementation based on:
 # http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
-
-# Biquad filter
 class Filter
 
   # Biquad filter types
@@ -315,12 +602,28 @@ class Filter
     # Since we now accept frequency as an option
     @recalculateCoefficients()
 
-  #
-  # Basic parameters
+
+  ###
+  setFrequency()
+  Alias for setF0(). Sometimes referred to as the center frequency, midpoint
+  frequency, or cutoff frequency, depending on filter type.
+
+  Arguments
+  Number value representing center frequency in Hz. Default 300.
+  ###
   setFrequency: (freq) ->
     @setF0(freq)
   getFrequency: -> @f0
 
+  ###
+  setQ()
+  "Q factor"
+
+  Arguments
+  Number value representing the filter's Q factor. Only used in some filter
+  types. To see the impact Q has on the filter's frequency response, use the
+  calculator at: http://www.earlevel.com/main/2013/10/13/biquad-calculator-v2/
+  ###
   getQ: -> @Q
   setQ: (q) ->
     @parameterType = Filter.Q
@@ -338,6 +641,14 @@ class Filter
     @type = type
     @recalculateCoefficients()
 
+  ###
+  setBW()
+  Set band width value used in "band" filter types.
+
+  Arguments
+  Number value representing the filter's band width. Ignored unless filter type
+  is set to band pass.
+  ###
   setBW: (bw) ->
     @parameterType = Filter.BW
     @BW = bw
@@ -348,6 +659,14 @@ class Filter
     @S = Math.max(Math.min(s, 5.0), 0.0001)
     @recalculateCoefficients()
 
+  ###
+  setF0()
+  Sometimes referred to as the center frequency, midpoint frequency, or cutoff
+  frequency, depending on filter type.
+
+  Arguments
+  Number value representing center frequency in Hz. Default 300.
+  ###
   setF0: (freq) ->
     @f0 = freq
     @recalculateCoefficients()
@@ -467,6 +786,38 @@ class Filter
     @a1a0 = @a1/@a0
     @a2a0 = @a2/@a0
 
+
+  ###
+  process()
+  ---------
+
+  Arguments
+  A single instance of Oscillator or the returned value from another process()
+  call (such as Mixer).
+
+  Returns
+  An object that can be passed into play(), used in buildSample(), or passed
+  into another object's process() method. More precisely, process() returns a
+  closure in the format of `(time) -> sample`.
+
+  Usage 1
+  var someOscillator = new Oscillator({type: Oscillator.SAWTOOTH});
+  var filter = new Filter;
+  var processor = filter.process(someOscillator);
+  var buildSample = function(time) {
+    return processor(time);
+  }
+
+  Usage 2
+  var someOscillator1 = new Oscillator({type: Oscillator.SQUARE});
+  var someOscillator2 = new Oscillator;
+  var filter = new Fiter;
+  var processor = filter.process(envelope.process(mixer.process(someOscillator1, someOscillator2)));
+  var buildSample = function(time) {
+    return processor(time);
+  }
+
+  ###
   process: (child) ->
     unless Function.isFunction(child)
       throw new Error "#{@constructor.name}.process() requires a sound generator but did not receive any."
