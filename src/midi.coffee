@@ -13,13 +13,14 @@ parseMidi = (options={}) ->
   instrumentBuilders  = options.instrumentBuilders || {}
   masterGain          = options.masterGain || -20
 
-  unless options.transport? and options.parts?
-    throw new Error "Options must specify 'transport' and 'parts' values for parseMidi."
+  unless options.parts?
+    throw new Error "Options must specify 'parts' values for parseMidi."
 
   ->
     # Tone.js uses a default "parts per quarter" of 48
     # BPM is specified in the transport
-    @setBPM parseInt(transport.bpm) * 48
+    if options.transport?
+      @setBPM parseInt(transport.bpm) * 48
     @setMasterGain masterGain
 
     processedNotes = []
@@ -35,7 +36,7 @@ parseMidi = (options={}) ->
 
     for note in processedNotes
       # Closures in a loop are tricky, but CoffeeScript provides the do keyword
-      # which will push a new "lexical scope" that captures outside variables.
+      # which will push a new lexical scope to capture outside variables.
       # We *also* must bind to this, by using => intstead of ->, to ensure the
       # `do` closure is run in the scope provided by `buildTrack`.
       do (note) =>
@@ -43,6 +44,8 @@ parseMidi = (options={}) ->
           if builder = instrumentBuilders[note.instrument]
             @play builder(note)
           else
-            o = new Oscillator(frequency: note.frequency, type: Oscillator.SQUARE)
-            e = new Envelope(decayTime: note.duration)
-            @play e.process(o)
+            # Be slightly more careful about the shared namespace when this is
+            # apply'd to run in buildTrack().
+            _o = new Oscillator(frequency: note.frequency, type: Oscillator.SQUARE)
+            _e = new Envelope(decayTime: note.duration)
+            @play _e.process(_o)
