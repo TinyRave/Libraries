@@ -200,6 +200,8 @@ class @EditorBuilder
     editor.getSession().setUseSoftTabs(true)
     editor.getSession().setTabSize(2)
     editor.$blockScrolling = Infinity # Disable deprecation warning
+    editor.renderer.setShowGutter(false)
+    editor.setShowPrintMargin(false)
     editor.focus()
 
     @_addListeners()
