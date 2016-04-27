@@ -112,39 +112,45 @@ class Oscillator
       # Using localTime makes it easier to anticipate the interference of
       # multiple oscillators
       @startTime = time if @startTime == -1
-      localTime = time - @startTime
+      @localTime = time - @startTime
 
-      _phase = if @numericPhase? then @numericPhase else @phase(localTime)
-      _frequency = if @numericFrequency? then @numericFrequency else @frequency(localTime)
-      _amplitude = if @numericAmplitude? then @numericAmplitude else @amplitude(localTime)
+      _phase = if @numericPhase? then @numericPhase else @phase(@localTime)
+      _frequency = if @numericFrequency? then @numericFrequency else @frequency(@localTime)
+      _amplitude = if @numericAmplitude? then @numericAmplitude else @amplitude(@localTime)
 
-      _amplitude * @oscillatorFunction((_frequency * localTime) + _phase)
+      _amplitude * @oscillatorFunction((_frequency * @localTime) + _phase)
 
     generator.displayName = "Oscillator Sound Generator"
 
-    generator.getFrequency = => @frequency
+    generator.getFrequency = =>
+      if @numericFrequency? then @numericFrequency else @frequency(@localTime)
     generator.setFrequency = (frequency) =>
       @frequency = frequency
       if Function.isFunction(@frequency)
         @numericFrequency = undefined
       else
         @numericFrequency = @frequency
+      frequency
 
-    generator.getPhase = => @phase
+    generator.getPhase = =>
+      if @numericPhase? then @numericPhase else @phase(@localTime)
     generator.setPhase = (phase) =>
       @phase = phase
       if Function.isFunction(@phase)
         @numericPhase = undefined
       else
         @numericPhase = @phase
+      phase
 
-    generator.getAmplitude = => @amplitude
+    generator.getAmplitude = =>
+      if @numericAmplitude? then @numericAmplitude else @amplitude(@localTime)
     generator.setAmplitude = (amplitude) =>
       @amplitude = amplitude
       if Function.isFunction(@amplitude)
         @numericAmplitude = undefined
       else
         @numericAmplitude = @amplitude
+      amplitude
 
     # Explicit return necessary in constructor
     return generator
@@ -547,10 +553,8 @@ class Filter
   @S = 3
 
   constructor: (options={}) ->
-    throw new Error "Must specify filter type." unless options.type?
-
     @Fs = SAMPLE_RATE
-    @type = options.type # type of the filter
+    @type = options.type || Filter.LOW_PASS # type of the filter
     @parameterType = Filter.Q # type of the parameter
 
     @x_1_l = 0
@@ -613,6 +617,7 @@ class Filter
   ###
   setFrequency: (freq) ->
     @setF0(freq)
+    freq
   getFrequency: -> @f0
 
   ###
@@ -629,6 +634,7 @@ class Filter
     @parameterType = Filter.Q
     @Q = Math.max(Math.min(q, 115.0), 0.001)
     @recalculateCoefficients()
+    q
 
   #
   # Advanced filter parameters
@@ -653,6 +659,7 @@ class Filter
     @parameterType = Filter.BW
     @BW = bw
     @recalculateCoefficients()
+    bw
 
   setS: (s) ->
     @parameterType = Filter.S
