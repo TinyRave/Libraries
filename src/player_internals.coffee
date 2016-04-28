@@ -53,7 +53,17 @@ class @AudioWorker
       @workerInitialized = true
       @requestFrame()
     else
-      console.log("Not producing audio fast enough.") if @workerInitialized
+      if @workerInitialized
+        console.log("Not producing audio fast enough.")
+        # If on iOS kill the audio context. There's a bug where returning a single
+        # frame of 0's puts the system audio in an unusable / muted state. I
+        # haven't looked into it thoroughly. This is a temporary workaround to
+        # reduce the severity of the bug.
+        # http://stackoverflow.com/questions/9038625/detect-if-device-is-ios
+        if navigator && window
+          if /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+            window.player.pause()
+
       buffer = new Float64Array(AUDIO_BUFFER_SIZE * 2)
       buffer.fill 0
 
