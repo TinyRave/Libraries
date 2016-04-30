@@ -97,6 +97,7 @@ if ( ![].fill) {
  *        next frame ready by the time it's needed.
  */
 var handleMessage = function(message) {
+  var sample;
   if (message.data[0] === "generate") {
     buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample === "undefined" && typeof buildTrack === "undefined")
