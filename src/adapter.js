@@ -13,7 +13,7 @@
  * Value is the number of samples, per channel, to generate for each frame of
  * audio.
  */
-var BUFFER_SIZE = 2048;
+var BUFFER_SIZE = 4096;
 var SAMPLE_RATE = 44100;
 var TWO_PI = 2 * Math.PI;
 
