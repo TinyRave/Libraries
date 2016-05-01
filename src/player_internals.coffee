@@ -1,5 +1,5 @@
 SAMPLE_RATE = 44100
-AUDIO_BUFFER_SIZE = 4096
+AUDIO_BUFFER_SIZE = 2048
 STD_LIBRARY = 'importScripts("http://tinyrave.com/lib/v1/adapter.js", "http://tinyrave.com/lib/v1/stdlib.js");'
 
 # Unlock audio context for mobile safari
@@ -134,8 +134,8 @@ class @AudioWrapper
       HEIGHT = parseInt(el.getAttribute('height'))
       BG_COLOR = el.getAttribute('data-bg-color')
       LINE_COLOR = el.getAttribute('data-line-color')
-      @_audioAnalyser.fftSize = AUDIO_BUFFER_SIZE;
-      bufferLength = @_audioAnalyser.fftSize;
+      @_audioAnalyser.fftSize = AUDIO_BUFFER_SIZE
+      bufferLength = @_audioAnalyser.fftSize
       dataArray = new Uint8Array(bufferLength)
 
       canvasCtx = el.getContext('2d')
