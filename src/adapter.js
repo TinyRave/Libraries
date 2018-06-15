@@ -14,7 +14,7 @@
  * audio.
  */
 var BUFFER_SIZE = 2048;
-var SAMPLE_RATE = 44100;
+var SAMPLE_RATE; // Will be updated below - undefined until first buildSample()
 var TWO_PI = 2 * Math.PI;
 
 // Internal count of samples generated, per channel.
