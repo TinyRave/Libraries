@@ -94,11 +94,14 @@ if ( ![].fill) {
  *   6) The web worker sits idle until the next "generate" message.
  *
  *   Note: the host tries to stay 1 buffer ahead of the AudioContext to have the
- *        next frame ready by the time it's needed.
+ *        next frame ready by the time it's needed. Additionally, it's possible
+ *        for the system to pick a different SAMPLE_RATE than the one we specify
+ *        so we need to pass it to our worker from the host.
  */
 var handleMessage = function(message) {
   var sample;
   if (message.data[0] === "generate") {
+    SAMPLE_RATE = message.data[1];
     buffer = new Float64Array(BUFFER_SIZE * 2);
     if (typeof buildSample === "undefined" && typeof buildTrack === "undefined")
     {

@@ -1,9 +1,10 @@
-SAMPLE_RATE = 44100
+@globalAudioContext ||= new (window.AudioContext || window.webkitAudioContext)()
+
+SAMPLE_RATE = @globalAudioContext.sampleRate # System will pick hardware value
 AUDIO_BUFFER_SIZE = 2048
 STD_LIBRARY = 'importScripts("http://tinyrave.com/lib/v1/adapter.js", "http://tinyrave.com/lib/v1/stdlib.js");'
 
 # Unlock audio context for mobile safari
-@globalAudioContext ||= new (window.AudioContext || window.webkitAudioContext)({sampleRate: SAMPLE_RATE})
 @audioContextUnlocked = false
 window.addEventListener('touchend', (
   =>
@@ -33,7 +34,7 @@ class @AudioWorker
       window.yieldWorker(@worker)
 
   requestFrame: ->
-    @worker.postMessage(["generate"])
+    @worker.postMessage(["generate", SAMPLE_RATE])
 
   pop: ->
     # Here's the sequence of events:
