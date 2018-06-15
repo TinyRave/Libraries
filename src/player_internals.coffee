@@ -3,7 +3,7 @@ AUDIO_BUFFER_SIZE = 2048
 STD_LIBRARY = 'importScripts("http://tinyrave.com/lib/v1/adapter.js", "http://tinyrave.com/lib/v1/stdlib.js");'
 
 # Unlock audio context for mobile safari
-@globalAudioContext ||= new (window.AudioContext || window.webkitAudioContext)()
+@globalAudioContext ||= new (window.AudioContext || window.webkitAudioContext)({sampleRate: SAMPLE_RATE})
 @audioContextUnlocked = false
 window.addEventListener('touchend', (
   =>

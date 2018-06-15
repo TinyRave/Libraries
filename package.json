@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "A set of common libraries for TinyRave.com",
   "dependencies": {
-    "coffee-script": ">1.7"
+    "coffee-script": "1.7"
   }
 }
-
